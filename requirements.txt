@@ -1,0 +1,7 @@
+flask
+requests
+openai
+huggingface_hub
+pillow
+python-dotenv
+serverless-wsgi
