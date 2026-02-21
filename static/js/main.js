@@ -1,345 +1,535 @@
 import CONFIG from './config.js';
+import ParticleNetwork from './particles.js';
+import DB from './db.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Elements ---
+    const pages = {
+        home: document.getElementById('home-page'),
+        auth: document.getElementById('auth-page'),
+        app: document.getElementById('app-page'),
+        profile: document.getElementById('profile-page')
+    };
+
+    // Initialize Interactive Background
+    let bgNetwork = null;
+    const particleCanvas = document.getElementById('particle-canvas');
+    if (particleCanvas) {
+        bgNetwork = new ParticleNetwork('particle-canvas');
+    }
+
+    // Removed redundant theme dropdown listeners. Handled at the bottom via setupMenuDropdown
+
+    // --- Form Elements ---
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const loginIdInput = document.getElementById('login-id');
+    const loginPassInput = document.getElementById('login-password');
+    const fullProfileEditForm = document.getElementById('full-profile-edit-form');
+
+    const userInitial = document.getElementById('user-initial');
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
     const stopBtn = document.getElementById('stop-btn');
     const typingIndicator = document.getElementById('typing-indicator');
     const historyList = document.getElementById('history-list');
-    const mainView = document.getElementById('sidebar-main-view');
-    const settingsView = document.getElementById('sidebar-settings-view');
-    const openSettingsBtn = document.getElementById('open-settings-btn');
-    const backBtn = document.getElementById('back-to-main');
-    const devAccessBtn = document.getElementById('dev-access-btn');
-    const devKeyContainer = document.getElementById('dev-key-container');
-    const devTokenOverrideInput = document.getElementById('dev-token-override');
 
-    // Auth elements
-    const landingView = document.getElementById('landing-view');
-    const authView = document.getElementById('auth-view');
-    const successView = document.getElementById('success-view');
-    const authForm = document.getElementById('auth-form');
-    const authTitle = document.getElementById('auth-title');
-    const authSubmit = document.getElementById('auth-submit');
-    const showSignupBtn = document.getElementById('show-signup');
-    const showLoginBtn = document.getElementById('show-login');
-    const switchToLogin = document.getElementById('switch-to-login');
-    const trySnailBtn = document.getElementById('try-snail-btn');
-    const welcomeUserSpan = document.getElementById('welcome-user');
-    const usernameGroup = document.getElementById('username-group');
-    const confirmPasswordGroup = document.getElementById('confirm-password-group');
-    const closeOverlays = document.querySelectorAll('.close-overlay');
+    // Auth section refs
+    const loginSection = document.getElementById('login-section');
+    const signupSection = document.getElementById('signup-section');
+    // --- Verification Logic ---
+    const sendCode = (email) => {
+        if (!email) {
+            alert('Please enter an email or username first.');
+            return;
+        }
+        // This function is no longer used for actual verification in the new flow
+        // but kept for potential future use or if other parts of the app still call it.
+        // The verificationCode and codeExpiry are also removed from state.
+        console.log(`%c[EMAIL SIMULATION] Code sent to ${email}: (Verification removed)`, 'color: #4f46e5; font-weight: bold;');
+        alert(`A verification code would have been sent to ${email} (Verification removed in this demo).`);
+    };
 
-    // Profile elements
-    const userProfileTrigger = document.getElementById('user-profile-trigger');
-    const profileDropdown = document.getElementById('profile-dropdown');
-    const userInitial = document.getElementById('user-initial');
-    const editProfileBtn = document.getElementById('edit-profile-btn');
-    const signOutBtn = document.getElementById('sign-out-btn');
-    const editProfileModal = document.getElementById('edit-profile-modal');
-    const editProfileForm = document.getElementById('edit-profile-form');
-    const closeProfileModal = document.getElementById('close-profile-modal');
-    const verifyModal = document.getElementById('verify-modal');
-    const confirmVerifyBtn = document.getElementById('confirm-verify-btn');
-    const verifyCodeInput = document.getElementById('verify-code');
-
-    let currentAbortController = null;
+    // --- State ---
+    let currentUser = DB.getCurrentUser();
     let currentSessionId = null;
     let chatHistory = [];
+    let currentAbortController = null;
 
-    // ================= SETTINGS & DROPDOWN LOGIC =================
+    // Developer Credentials (Bypass)
+    const DEV_ACCOUNT = {
+        email: 'kartik.ps.mishra07@gmail.com',
+        password: 'Kartik0711'
+    };
 
-    function setupDropdown(id, storageKey, applyFn, defaultVal) {
-        const dropdown = document.getElementById(id);
-        if (!dropdown) return;
-
-        const selected = dropdown.querySelector('.dropdown-selected');
-        const options = dropdown.querySelectorAll('.option');
-
-        selected.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.querySelectorAll('.custom-dropdown').forEach(d => {
-                if (d !== dropdown) d.classList.remove('active');
+    // --- Router Logic ---
+    const router = {
+        navigate: (page) => {
+            Object.values(pages).forEach(p => {
+                if (p) {
+                    p.classList.add('hidden');
+                    p.classList.remove('active');
+                }
             });
-            dropdown.classList.toggle('active');
-        });
 
-        options.forEach(option => {
-            option.addEventListener('click', () => {
-                const value = option.getAttribute('data-theme') || option.getAttribute('data-anim') || option.getAttribute('data-value');
-                const icon = option.querySelector('i') ? option.querySelector('i').className : 'fas fa-cog';
-                const text = option.innerText.trim();
-
-                selected.querySelector('span').innerHTML = `<i class="${icon}"></i> ${text}`;
-                options.forEach(opt => opt.classList.remove('selected'));
-                option.classList.add('selected');
-
-                applyFn(value);
-                localStorage.setItem(storageKey, value);
-                dropdown.classList.remove('active');
-            });
-        });
-
-        const savedValue = localStorage.getItem(storageKey) || defaultVal;
-        if (savedValue) {
-            const initialOption = [...options].find(opt =>
-                (opt.getAttribute('data-theme') === savedValue) ||
-                (opt.getAttribute('data-anim') === savedValue) ||
-                (opt.getAttribute('data-value') === savedValue) ||
-                (opt.getAttribute('data-theme') === savedValue.replace('theme-', ''))
-            );
-            if (initialOption) {
-                const icon = initialOption.querySelector('i') ? initialOption.querySelector('i').className : 'fas fa-cog';
-                selected.querySelector('span').innerHTML = `<i class="${icon}"></i> ${initialOption.innerText.trim()}`;
-                options.forEach(opt => opt.classList.remove('selected'));
-                initialOption.classList.add('selected');
-                applyFn(savedValue);
+            if (pages[page]) {
+                pages[page].classList.remove('hidden');
+                pages[page].classList.add('active');
             }
-        }
-    }
 
-    const applyTheme = (theme) => {
-        if (!theme) return;
-        const themeClass = `theme-${theme.replace('theme-', '')}`;
-        document.body.classList.forEach(cls => {
-            if (cls.startsWith('theme-')) document.body.classList.remove(cls);
-        });
-        document.body.classList.add(themeClass);
-    };
+            // Sync body dataset to allow CSS backgrounds to toggle off (e.g. particle canvas)
+            document.body.dataset.currentPage = page;
 
-    const applyAnim = (level) => {
-        if (!level) return;
-        document.body.setAttribute('data-anim', level);
-    };
-
-    setupDropdown('theme-dropdown', 'snail-gpt-theme', applyTheme, 'midnight');
-    setupDropdown('anim-dropdown', 'snail-gpt-anim', applyAnim, 'high');
-
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('active'));
-    });
-
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('active'));
-    });
-
-    const optBtn = document.getElementById('extreme-opt-btn');
-    if (optBtn) {
-        const toggleOpt = (forceState = null) => {
-            const isOpt = forceState !== null ? forceState : !document.body.classList.contains('extreme-opt');
-            document.body.classList.toggle('extreme-opt', isOpt);
-            localStorage.setItem('snail-gpt-extreme-opt', isOpt);
-        };
-        optBtn.addEventListener('click', () => toggleOpt());
-        const savedOpt = localStorage.getItem('snail-gpt-extreme-opt') === 'true';
-        if (savedOpt) toggleOpt(true);
-    }
-
-    // ================= DEVELOPER ACCESS LOGIC =================
-    const DEV_EMAIL = "kartik.ps.mishra07@gmail.com";
-
-    function checkDevAccess() {
-        const isDev = localStorage.getItem('snail-gpt-is-dev') === 'true';
-        if (isDev && devKeyContainer) {
-            devKeyContainer.classList.remove('hidden');
-            if (devAccessBtn) devAccessBtn.style.display = 'none';
-        }
-    }
-
-    if (devAccessBtn) {
-        devAccessBtn.addEventListener('click', () => {
-            const email = prompt("Enter Developer Email:");
-            if (email === DEV_EMAIL) {
-                localStorage.setItem('snail-gpt-is-dev', 'true');
-                alert("Developer access granted.");
-                checkDevAccess();
+            if (page === 'app') initApp();
+            if (page === 'profile') loadProfileData();
+        },
+        toggleAuth: (mode) => {
+            if (mode === 'login') {
+                loginSection.classList.remove('hidden');
+                signupSection.classList.add('hidden');
             } else {
-                alert("Access denied.");
+                loginSection.classList.add('hidden');
+                signupSection.classList.remove('hidden');
             }
-        });
+        }
+    };
+    window.router = router; // Global access for inline onclicks
+
+    // --- Auth Logic ---
+    // These functions are no longer used for the main auth flow
+    function sendSimulatedEmail(code) {
+        const toast = document.getElementById('email-notification');
+        const codeDisplay = document.getElementById('sent-code-display');
+        if (codeDisplay) codeDisplay.textContent = code;
+        if (toast) {
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 8000);
+        }
     }
 
-    if (devTokenOverrideInput) {
-        devTokenOverrideInput.value = localStorage.getItem('snail-gpt-dev-token') || '';
-        devTokenOverrideInput.addEventListener('input', (e) => {
-            localStorage.setItem('snail-gpt-dev-token', e.target.value);
-        });
+    function generateCode() {
+        // This function is no longer used for the main auth flow
+        return "000000"; // Placeholder
     }
 
-    checkDevAccess();
+    // Attach Nav Events
+    const btnSignup = document.getElementById('nav-signup-btn');
+    const btnLogin = document.getElementById('nav-login-btn');
+    const btnBackHome = document.getElementById('auth-back-home');
+    const btnSwitchSignup = document.getElementById('switch-to-signup-btn');
+    const btnSwitchLogin = document.getElementById('switch-to-login-btn');
 
-    // ================= MESSAGE HANDLING =================
+    if (btnSignup) btnSignup.onclick = () => {
+        router.navigate('auth');
+        router.toggleAuth('signup');
+    };
+    if (btnLogin) btnLogin.onclick = () => {
+        router.navigate('auth');
+        router.toggleAuth('login');
+    };
+    if (btnBackHome) btnBackHome.onclick = () => router.navigate('home');
+    if (btnSwitchSignup) btnSwitchSignup.onclick = () => {
+        router.toggleAuth('signup');
+    };
+    if (btnSwitchLogin) btnSwitchLogin.onclick = () => {
+        router.toggleAuth('login');
+    };
 
-    const greetings = [
-        "What are you working on?",
-        "How can I help you today?",
-        "What's the plan for today?",
-        "Let's solve some problems."
-    ];
+    // Signup Submit
+    if (signupForm) signupForm.onsubmit = (e) => {
+        e.preventDefault();
+        const email = document.getElementById('signup-email').value;
+        const username = document.getElementById('signup-username').value;
+        const password = document.getElementById('signup-password').value;
+        const confirm = document.getElementById('signup-confirm').value;
 
-    function getRandomGreeting() {
-        return greetings[Math.floor(Math.random() * greetings.length)];
-    }
+        // Developer Override
+        const isDev = (email === DEV_ACCOUNT.email && password === DEV_ACCOUNT.password);
 
-    function appendMessage(sender, text) {
-        const bubble = document.createElement('div');
-        bubble.classList.add('chat-bubble', sender);
+        if (!isDev) {
+            if (password !== confirm) return alert("Passwords do not match");
 
-        const avatar = document.createElement('div');
-        avatar.classList.add('avatar');
-        avatar.innerHTML = sender === 'ai' ? '🐌' : '👤';
+            // Strict duplicate checks
+            const users = DB.getUsers();
+            const emailExists = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+            if (emailExists) return alert("An account with this email already exists. Please login.");
 
-        const wrap = document.createElement('div');
-        wrap.classList.add('message-wrap');
-
-        const content = document.createElement('div');
-        content.classList.add('message-content');
-
-        if (sender === 'ai') {
-            content.innerHTML = marked.parse(text);
-        } else {
-            content.textContent = text;
+            const usernameExists = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+            if (usernameExists) return alert("This display name is already taken. Please choose another.");
         }
 
-        wrap.appendChild(content);
-        bubble.appendChild(avatar);
-        bubble.appendChild(wrap);
-        chatMessages.appendChild(bubble);
+        const recoveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const newUser = { email, username: isDev ? 'Kartik' : username, password, recoveryCode, conversations: [] };
 
-        const welcome = document.querySelector('.welcome-message');
-        if (welcome) {
-            welcome.style.opacity = '0';
-            setTimeout(() => welcome.remove(), 500);
+        if (!isDev) {
+            DB.addUser(newUser); // don't persist dev account forcibly over existing if testing
+            alert(`Account created successfully!\n\nIMPORTANT: Your 6-Digit Recovery Code is: ${recoveryCode}\n\nPlease save this code. You will need it to change your password in the Profile Settings.`);
         }
 
-        scrollToBottom();
-    }
+        DB.setCurrentUser(newUser);
+        currentUser = newUser;
+        router.navigate('app');
+    };
 
-    function scrollToBottom() {
-        const chatWindow = document.getElementById('chat-window');
-        chatWindow.scrollTo({
-            top: chatWindow.scrollHeight,
-            behavior: 'smooth'
-        });
-    }
+    // Login Submit
+    if (loginForm) loginForm.onsubmit = (e) => {
+        e.preventDefault();
+        const id = document.getElementById('login-id').value;
+        const password = document.getElementById('login-password').value;
 
-    function toggleTyping(show) {
-        if (show) {
-            typingIndicator.classList.remove('hidden');
-        } else {
-            typingIndicator.classList.add('hidden');
+        // Developer Override
+        const isDev = (id === DEV_ACCOUNT.email && password === DEV_ACCOUNT.password);
+
+        if (isDev) {
+            const activeUser = DB.findUser(id) || { email: DEV_ACCOUNT.email, username: 'Kartik', password: DEV_ACCOUNT.password, recoveryCode: '150700', conversations: [] };
+            activeUser.recoveryCode = '150700'; // Enforce admin recovery code
+            DB.setCurrentUser(activeUser);
+            currentUser = activeUser;
+            return router.navigate('app');
         }
-        scrollToBottom();
+
+        const savedUser = DB.findUser(id);
+
+        if (!savedUser || savedUser.password !== password) {
+            return alert("Invalid identifier or password.");
+        }
+
+        DB.setCurrentUser(savedUser);
+        currentUser = savedUser;
+        router.navigate('app');
+    };
+
+
+    function initApp() {
+        if (!currentUser) return router.navigate('home');
+        const initial = currentUser.username.charAt(0).toUpperCase();
+
+        // Handle Sidebar Avatar
+        const sidebarAvatar = document.getElementById('user-initial');
+        if (sidebarAvatar) {
+            if (currentUser.avatarUrl) {
+                sidebarAvatar.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">`;
+                sidebarAvatar.style.background = 'transparent';
+                sidebarAvatar.style.border = 'none';
+            } else {
+                sidebarAvatar.textContent = initial;
+                sidebarAvatar.style.background = '';
+                sidebarAvatar.style.border = '';
+            }
+        }
+
+        // Handle Popup Avatar
+        const popupInitialEl = document.getElementById('popup-user-initial');
+        const popupNameEl = document.getElementById('popup-user-name');
+        if (popupInitialEl) {
+            if (currentUser.avatarUrl) {
+                popupInitialEl.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                popupInitialEl.style.background = 'transparent';
+            } else {
+                popupInitialEl.textContent = initial;
+                popupInitialEl.style.background = '';
+            }
+        }
+        if (popupNameEl) popupNameEl.textContent = currentUser.username;
+
+        // Developer Mode Access Control
+        const devAccessContainer = document.getElementById('dev-access-container');
+        if (devAccessContainer) {
+            if (currentUser.email === 'kartik.ps.mishra07@gmail.com') {
+                devAccessContainer.style.display = 'block';
+            } else {
+                devAccessContainer.style.display = 'none';
+            }
+        }
+
+        loadSessions();
     }
 
+    const profileTrigger = document.getElementById('user-profile-trigger');
+    if (profileTrigger) profileTrigger.onclick = () => router.navigate('profile');
+
+    // --- Profile Logic ---
+    function loadProfileData() {
+        if (!currentUser) return router.navigate('home');
+        const profUser = document.getElementById('prof-username');
+        const profEmail = document.getElementById('prof-email');
+        const profAvatar = document.getElementById('profile-avatar-large');
+        const profDisp = document.getElementById('profile-display-name');
+        const profRole = document.querySelector('.profile-role');
+        const fileInput = document.getElementById('prof-avatar-file');
+        const revertBtn = document.getElementById('prof-avatar-revert');
+
+        if (profUser) profUser.value = currentUser.username;
+        if (profEmail) profEmail.value = currentUser.email;
+        if (fileInput) fileInput.value = ''; // Reset input
+
+        let pendingAvatar = currentUser.avatarUrl || null;
+
+        if (profAvatar) {
+            if (pendingAvatar) {
+                profAvatar.innerHTML = `<img src="${pendingAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                profAvatar.style.background = 'transparent';
+                if (revertBtn) revertBtn.style.display = 'flex';
+            } else {
+                profAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+                profAvatar.style.background = '';
+                if (revertBtn) revertBtn.style.display = 'none';
+            }
+        }
+        if (profDisp) profDisp.textContent = currentUser.username;
+
+        if (profRole) {
+            if (currentUser.email === 'kartik.ps.mishra07@gmail.com') {
+                profRole.innerHTML = '✨ Founder & Lead Developer';
+                profRole.style.color = 'var(--primary)';
+            } else {
+                profRole.textContent = 'SnailGPT Researcher';
+                profRole.style.color = '';
+            }
+        }
+
+        // Live Avatar Preview
+        if (fileInput) {
+            fileInput.onchange = (ev) => {
+                const file = ev.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        pendingAvatar = e.target.result;
+                        if (profAvatar) {
+                            profAvatar.innerHTML = `<img src="${pendingAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                            profAvatar.style.background = 'transparent';
+                        }
+                        if (revertBtn) revertBtn.style.display = 'flex';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+        }
+
+        // Revert Avatar
+        if (revertBtn) {
+            revertBtn.onclick = () => {
+                pendingAvatar = null;
+                if (fileInput) fileInput.value = '';
+                if (profAvatar) {
+                    profAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+                    profAvatar.style.background = '';
+                }
+                revertBtn.style.display = 'none';
+            };
+        }
+
+        // --- Profile Form Submit (inside loadProfileData to access pendingAvatar) ---
+        if (fullProfileEditForm) {
+            fullProfileEditForm.onsubmit = (e) => {
+                e.preventDefault();
+                const newUsername = (document.getElementById('prof-username') || {}).value?.trim() || '';
+                const newPasswordInput = document.getElementById('prof-password');
+                const verifyInput = document.getElementById('prof-verify');
+                const newPassword = newPasswordInput ? newPasswordInput.value : '';
+                const code = verifyInput ? verifyInput.value.trim() : '';
+
+                if (!newUsername) return alert('Display name cannot be empty');
+
+                if (newPassword) {
+                    const correctCode = (currentUser.email === 'kartik.ps.mishra07@gmail.com') ? '150700' : currentUser.recoveryCode;
+                    if (!correctCode && currentUser.email !== 'kartik.ps.mishra07@gmail.com') {
+                        return alert('Legacy accounts cannot change password. Contact the administrator.');
+                    }
+                    if (correctCode && code !== correctCode) {
+                        return alert('Invalid 6-Digit Recovery Code. Password change rejected.');
+                    }
+                }
+
+                const doSave = (avatarData) => {
+                    const users = DB.getUsers();
+                    const idx = users.findIndex(u => u.email === currentUser.email);
+                    if (idx > -1) {
+                        users[idx].username = newUsername;
+                        if (newPassword) users[idx].password = newPassword;
+                        users[idx].avatarUrl = avatarData || null;
+                        DB.saveUsers(users);
+                        currentUser = users[idx];
+                        DB.setCurrentUser(currentUser);
+                        if (newPasswordInput) newPasswordInput.value = '';
+                        if (verifyInput) verifyInput.value = '';
+                        initApp();
+                        router.navigate('app');
+                        setTimeout(() => {
+                            if (chatMessages) {
+                                chatMessages.innerHTML = '';
+                                if (!chatHistory || chatHistory.length === 0) {
+                                    chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+                                } else {
+                                    chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
+                                }
+                            }
+                        }, 50);
+                    }
+                };
+
+                // If a new file was selected, crop it first; otherwise use pendingAvatar directly
+                const currentFileInput = document.getElementById('prof-avatar-file');
+                if (currentFileInput && currentFileInput.files && currentFileInput.files[0]) {
+                    const file = currentFileInput.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const size = 200;
+                            canvas.width = size; canvas.height = size;
+                            const minEdge = Math.min(img.width, img.height);
+                            const sx = (img.width - minEdge) / 2;
+                            const sy = (img.height - minEdge) / 2;
+                            ctx.drawImage(img, sx, sy, minEdge, minEdge, 0, 0, size, size);
+                            doSave(canvas.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.src = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    // Use already-loaded pendingAvatar (null if reverted)
+                    doSave(pendingAvatar);
+                }
+            };
+        }
+    }
+
+    const profileBack = document.getElementById('profile-back-app');
+    if (profileBack) profileBack.onclick = () => router.navigate('app');
+
+    // ---- Profile Popup Sidebar ----
+    const sidebarProfileBtn = document.getElementById('sidebar-profile-btn');
+    const profilePopup = document.getElementById('profile-popup');
+    const popupProfileBtn = document.getElementById('popup-profile-btn');
+    const popupSignoutBtn = document.getElementById('popup-signout-btn');
+    const popupUserInitial = document.getElementById('popup-user-initial');
+    const popupUserName = document.getElementById('popup-user-name');
+
+    if (sidebarProfileBtn && profilePopup) {
+        sidebarProfileBtn.onclick = (e) => {
+            e.stopPropagation();
+            profilePopup.classList.toggle('hidden');
+        };
+    }
+    if (popupProfileBtn) popupProfileBtn.onclick = () => {
+        if (profilePopup) profilePopup.classList.add('hidden');
+        router.navigate('profile');
+    };
+    if (popupSignoutBtn) popupSignoutBtn.onclick = () => {
+        DB.logout();
+        currentUser = null;
+        if (profilePopup) profilePopup.classList.add('hidden');
+        router.navigate('home');
+    };
+    document.addEventListener('click', (e) => {
+        if (profilePopup && !profilePopup.classList.contains('hidden')) {
+            const wrapper = document.getElementById('profile-menu-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                profilePopup.classList.add('hidden');
+            }
+        }
+    });
+
+    const btnLogout = document.getElementById('logout-btn-large');
+    if (btnLogout) btnLogout.onclick = () => {
+        DB.logout();
+        currentUser = null;
+        router.navigate('home');
+    };
+
+    // ---- Clear History ----
+    const clearHistoryBtn = document.getElementById('clear-history-btn');
+    if (clearHistoryBtn) {
+        clearHistoryBtn.onclick = () => {
+            if (!currentUser) return;
+            if (!confirm('Delete all chat history? This cannot be undone.')) return;
+            DB.clearConversations(currentUser.email);
+            currentSessionId = null;
+            chatHistory = [];
+            if (chatMessages) chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+            clearHistoryBtn.classList.add('hidden');
+            if (historyList) historyList.innerHTML = '';
+        };
+    }
+
+    // --- AI Chat Logic ---
     async function sendMessage() {
         const message = userInput.value.trim();
         if (!message) return;
 
-        const apiKey = CONFIG.DEVELOPER_TOKEN && CONFIG.DEVELOPER_TOKEN !== "REPLACE_WITH_YOUR_HF_TOKEN"
-            ? CONFIG.DEVELOPER_TOKEN
-            : localStorage.getItem('snail-gpt-hf-token');
+        // Check UI Override first, then LocalStorage, then Config
+        const devInput = document.getElementById('dev-token-override');
+        let apiKey = (devInput && devInput.value.trim()) ? devInput.value.trim() : localStorage.getItem('snail-gpt-hf-token');
 
-        if (!apiKey) {
-            alert('Developer Token not set! Please set DEVELOPER_TOKEN in static/js/config.js');
-            return;
+        if (!apiKey && CONFIG.DEVELOPER_TOKEN && CONFIG.DEVELOPER_TOKEN !== "REPLACE_WITH_YOUR_HF_TOKEN") {
+            apiKey = CONFIG.DEVELOPER_TOKEN;
         }
+
+        if (!apiKey) return alert('System API token missing or invalid. Please contact Kartik to configure the master system token.');
 
         appendMessage('user', message);
         userInput.value = '';
         userInput.style.height = 'auto';
-
         userInput.disabled = true;
         sendBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
         toggleTyping(true);
 
         currentAbortController = new AbortController();
-        let aiMessageBubble = null;
         let aiMessageContent = null;
         let fullText = "";
 
-        // Add to history state
         chatHistory.push({ role: "user", content: message });
 
         try {
             const isExtremeOpt = document.body.classList.contains('extreme-opt');
+            const systemPrompt = `You are SnailGPT. Modern Reality: 2026. Behavior: Helpful/Precise. Limit simple answers to 3-4 lines.`;
 
-            // Build messages with system prompt
-            const time_context = `Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.`;
-            const systemPrompt = `You are Snail GPT, an advanced AI based on GPT-4 architecture. 
-            Behavior: Helpful, extremely accurate, and objective. 
-            Constraint: For simple questions or greetings, answer in 3 to 4 lines maximum. 
-            Context: ${time_context} Use Markdown for formatting.`;
-
-            const messages = [
-                { role: "system", content: systemPrompt },
-                ...chatHistory.slice(-5) // Send last 5 message for context
-            ];
+            const payload = {
+                model: CONFIG.MODEL_NAME,
+                messages: [{ role: "system", content: systemPrompt }, ...chatHistory.slice(-10)],
+                stream: true,
+                max_tokens: isExtremeOpt ? 512 : 2048,
+                temperature: isExtremeOpt ? 0.5 : 0.7
+            };
 
             const response = await fetch(`${CONFIG.API_BASE_URL}/chat/completions`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: CONFIG.MODEL_NAME,
-                    messages: messages,
-                    stream: true,
-                    max_tokens: isExtremeOpt ? 200 : 800,
-                    temperature: 0.7
-                }),
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify(payload),
                 signal: currentAbortController.signal
             });
 
-            if (!response.ok) {
-                let errorMessage = `API Error ${response.status}`;
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error?.message || errorData.message || errorMessage;
-                } catch (e) {
-                    // If not JSON, try text
-                    const errorText = await response.text();
-                    errorMessage = errorText || errorMessage;
-                }
-                throw new Error(errorMessage);
-            }
+            if (!response.ok) throw new Error("API Connection Failed or Token Invalid");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-
             toggleTyping(false);
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value);
                 const lines = chunk.split('\n');
-
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const dataStr = line.replace('data: ', '').trim();
                         if (dataStr === '[DONE]') break;
                         try {
-                            const json = JSON.parse(dataStr);
-                            const content = json.choices[0].delta.content || "";
+                            const content = JSON.parse(dataStr).choices[0].delta.content || "";
                             if (content) {
                                 fullText += content;
-                                if (!aiMessageBubble) {
-                                    aiMessageBubble = document.createElement('div');
-                                    aiMessageBubble.classList.add('chat-bubble', 'ai');
-                                    aiMessageBubble.innerHTML = `
-                                        <div class="avatar">🐌</div>
-                                        <div class="message-wrap">
-                                            <span class="message-sender">Snail GPT</span>
-                                            <div class="message-content"></div>
-                                        </div>
-                                    `;
-                                    chatMessages.appendChild(aiMessageBubble);
-                                    aiMessageContent = aiMessageBubble.querySelector('.message-content');
+                                if (!aiMessageContent) {
+                                    const bubble = document.createElement('div');
+                                    bubble.classList.add('chat-bubble', 'ai');
+                                    bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
+                                    chatMessages.appendChild(bubble);
+                                    aiMessageContent = bubble.querySelector('.message-content');
                                 }
                                 aiMessageContent.innerHTML = marked.parse(fullText);
                                 scrollToBottom();
@@ -348,21 +538,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-
             chatHistory.push({ role: "assistant", content: fullText });
             saveSession();
-
         } catch (error) {
             toggleTyping(false);
-            if (error.name === 'AbortError') {
-                if (aiMessageContent) aiMessageContent.innerHTML += "<br>_Generation cancelled._";
-                else appendMessage('ai', "_Generation cancelled._");
-            } else {
-                const displayError = `⚠️ **System Error:** ${error.message}\n\n*Technical Details: Check your API Token or Model Availability.*`;
-                if (aiMessageContent) aiMessageContent.innerHTML = marked.parse(displayError);
-                else appendMessage('ai', displayError);
-                console.error('SnailGPT Integration Error:', error);
-            }
+            appendMessage('ai', error.name === 'AbortError' ? "_Cancelled._" : "⚠️ Error: " + error.message);
         } finally {
             currentAbortController = null;
             userInput.disabled = false;
@@ -372,120 +552,229 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function appendMessage(sender, text) {
+        if (!chatMessages) return;
+        const bubble = document.createElement('div');
+        bubble.classList.add('chat-bubble', sender);
+
+        let avatarHTML = '👤';
+        if (sender === 'ai') {
+            avatarHTML = '🐌';
+        } else if (currentUser && currentUser.avatarUrl) {
+            avatarHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:8px; object-fit:cover; display:block;">`;
+        }
+
+        bubble.innerHTML = `<div class="avatar" ${sender === 'user' && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div><div class="message-wrap"><div class="message-content">${sender === 'ai' ? marked.parse(text) : text}</div></div>`;
+        chatMessages.appendChild(bubble);
+        const welcome = document.querySelector('.welcome-message');
+        if (welcome) welcome.remove();
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        const win = document.getElementById('chat-window');
+        if (win) win.scrollTo({ top: win.scrollHeight, behavior: 'smooth' });
+    }
+
+    function toggleTyping(show) {
+        if (typingIndicator) typingIndicator.classList.toggle('hidden', !show);
+        scrollToBottom();
+    }
+
     function saveSession() {
         if (!chatHistory.length) return;
+        if (!currentUser) return;
 
-        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
         if (!currentSessionId) {
             currentSessionId = Date.now().toString();
-            const title = chatHistory[0].content.substring(0, 30) + (chatHistory[0].content.length > 30 ? '...' : '');
-            sessions.unshift({ id: currentSessionId, title, history: chatHistory, updated_at: Date.now() });
-        } else {
-            const index = sessions.findIndex(s => s.id === currentSessionId);
-            if (index !== -1) {
-                sessions[index].history = chatHistory;
-                sessions[index].updated_at = Date.now();
-            }
         }
-        localStorage.setItem('snail-gpt-sessions', JSON.stringify(sessions));
+
+        const convo = {
+            id: currentSessionId,
+            title: chatHistory[0].content.substring(0, 30),
+            history: chatHistory,
+            timestamp: Date.now()
+        };
+
+        DB.saveConversation(currentUser.email, convo);
         loadSessions();
     }
 
     function loadSessions() {
-        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
+        if (!historyList || !currentUser) return;
+        const sessions = DB.getConversations(currentUser.email);
         historyList.innerHTML = '';
-
-        const clearHistoryBtn = document.getElementById('clear-history-btn');
-        if (clearHistoryBtn) {
-            clearHistoryBtn.classList.toggle('hidden', sessions.length === 0);
-        }
-
-        sessions.forEach(session => {
+        // Show or hide Clear History button
+        const clearBtn = document.getElementById('clear-history-btn');
+        if (clearBtn) clearBtn.classList.toggle('hidden', sessions.length === 0);
+        sessions.sort((a, b) => b.timestamp - a.timestamp).forEach(s => {
             const item = document.createElement('div');
-            item.classList.add('history-item');
-            if (session.id === currentSessionId) item.classList.add('active');
-            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${session.title}</span>`;
-            item.addEventListener('click', () => loadSession(session.id));
+            item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
+            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
+            item.onclick = () => loadSession(s.id);
             historyList.appendChild(item);
         });
     }
 
     function loadSession(id) {
-        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
-        const session = sessions.find(s => s.id === id);
-        if (session) {
+        if (!currentUser) return;
+        const sessions = DB.getConversations(currentUser.email);
+        const s = sessions.find(x => x.id === id);
+        if (s) {
             currentSessionId = id;
-            chatHistory = session.history;
+            chatHistory = s.history;
             chatMessages.innerHTML = '';
-            chatHistory.forEach(msg => {
-                appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content);
-            });
+            chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
             loadSessions();
         }
     }
 
-    // ================= UI INTERACTION =================
+    // --- Sidebar Settings UI ---
+    const btnSettings = document.getElementById('open-settings-btn');
+    const btnBackMain = document.getElementById('back-to-main');
+    const sideMain = document.getElementById('sidebar-main-view');
+    const sideSettings = document.getElementById('sidebar-settings-view');
 
-    sendBtn.addEventListener('click', sendMessage);
-    stopBtn.addEventListener('click', () => currentAbortController?.abort());
+    if (btnSettings) btnSettings.onclick = () => {
+        if (sideMain) sideMain.classList.remove('active');
+        if (sideSettings) sideSettings.classList.add('active');
+    };
+    if (btnBackMain) btnBackMain.onclick = () => {
+        if (sideSettings) sideSettings.classList.remove('active');
+        if (sideMain) sideMain.classList.add('active');
+    };
 
-    userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    const newChatBtn = document.getElementById('new-chat-sidebar-btn');
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', () => {
-            currentSessionId = null;
-            chatHistory = [];
-            chatMessages.innerHTML = `<div class="welcome-message"><h1>${getRandomGreeting()}</h1></div>`;
-            document.querySelectorAll('.history-item').forEach(item => item.classList.remove('active'));
+    // --- Theme & Anim Dropdowns (Restore basic logic) ---
+    function setupMenuDropdown(id, applyFn) {
+        const dropdown = document.getElementById(id);
+        if (!dropdown) return;
+        const selected = dropdown.querySelector('.dropdown-selected');
+        const options = dropdown.querySelectorAll('.option');
+        if (selected) selected.onclick = (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('active');
+        };
+        options.forEach(opt => {
+            opt.onclick = () => {
+                const val = opt.getAttribute('data-theme') || opt.getAttribute('data-anim');
+                applyFn(val);
+                dropdown.classList.remove('active');
+            };
         });
     }
 
-    const clearHistoryBtn = document.getElementById('clear-history-btn');
-    if (clearHistoryBtn) {
-        clearHistoryBtn.addEventListener('click', () => {
-            if (confirm('Delete all history?')) {
-                localStorage.removeItem('snail-gpt-sessions');
-                newChatBtn.click();
-                loadSessions();
+    // Shared theme apply function used by both dropdowns
+    function applyTheme(t) {
+        if (!t) return;
+        // Preserve other body classes (extreme-opt, etc.)
+        const extraClasses = [...document.body.classList].filter(c => !c.startsWith('theme-'));
+        document.body.className = extraClasses.join(' ');
+        document.body.classList.add(`theme-${t}`);
+        // Re-trigger mesh animation for the new theme
+        const mesh = document.getElementById('background-mesh');
+        if (mesh) { mesh.style.animation = 'none'; mesh.offsetHeight; mesh.style.animation = ''; }
+        // Persist selection
+        localStorage.setItem('snail-gpt-theme', t);
+    }
+
+    // Wire both home-page and sidebar theme dropdowns to the same apply function
+    setupMenuDropdown('theme-dropdown', applyTheme);
+    setupMenuDropdown('sidebar-theme-dropdown', applyTheme);
+
+    setupMenuDropdown('anim-dropdown', (a) => {
+        document.body.dataset.anim = a;
+        localStorage.setItem('snail-gpt-anim', a);
+    });
+
+    // Restore saved theme on load
+    const savedTheme = localStorage.getItem('snail-gpt-theme') || 'midnight';
+    applyTheme(savedTheme);
+
+    // --- Original GUI Settings Restored ---
+    const devAccessBtn = document.getElementById('dev-access-btn');
+    const devKeyContainer = document.getElementById('dev-key-container');
+    const devTokenInput = document.getElementById('dev-token-override');
+
+    // Toggle Developer Key Input
+    if (devAccessBtn && devKeyContainer) {
+        devAccessBtn.addEventListener('click', () => {
+            devKeyContainer.classList.toggle('hidden');
+            if (!devKeyContainer.classList.contains('hidden') && devTokenInput) {
+                devTokenInput.focus();
             }
         });
     }
 
-    openSettingsBtn.addEventListener('click', () => {
-        mainView.classList.remove('active');
-        settingsView.classList.add('active');
-    });
-
-    backBtn.addEventListener('click', () => {
-        settingsView.classList.remove('active');
-        mainView.classList.add('active');
-    });
-
-    userInput.addEventListener('input', function () {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
-
-    const plusBtn = document.getElementById('plus-btn');
-    const plusMenu = document.getElementById('plus-menu');
-    const navImageGen = document.getElementById('nav-image-gen');
-
-    if (plusBtn && plusMenu) {
-        plusBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            plusMenu.classList.toggle('hidden');
+    if (devTokenInput) {
+        // Pre-fill if exists
+        devTokenInput.value = localStorage.getItem('snail-gpt-hf-token') || "";
+        devTokenInput.addEventListener('change', () => {
+            const val = devTokenInput.value.trim();
+            if (val) {
+                localStorage.setItem('snail-gpt-hf-token', val);
+                alert("Developer Token saved.");
+            } else {
+                localStorage.removeItem('snail-gpt-hf-token');
+                alert("Developer Token cleared.");
+            }
         });
-        document.addEventListener('click', (e) => {
-            if (!plusMenu.contains(e.target) && e.target !== plusBtn) plusMenu.classList.add('hidden');
-        });
-        navImageGen.addEventListener('click', () => window.location.href = 'media.html');
     }
 
-    loadSessions();
+    // Extreme Optimization Logic
+    const optBtn = document.getElementById('extreme-opt-btn');
+    if (optBtn) {
+        const toggleOpt = (forceState = null) => {
+            const isOpt = forceState !== null ? forceState : !document.body.classList.contains('extreme-opt');
+            document.body.classList.toggle('extreme-opt', isOpt);
+
+            // Visual toggle update (assuming the original used a class to show active state)
+            if (isOpt) {
+                optBtn.style.background = 'var(--primary)';
+                optBtn.style.color = 'white';
+            } else {
+                optBtn.style.background = '';
+                optBtn.style.color = '';
+            }
+
+            localStorage.setItem('snail-gpt-extreme-opt', isOpt);
+        };
+
+        optBtn.addEventListener('click', () => toggleOpt());
+
+        // Initial Load
+        const savedOpt = localStorage.getItem('snail-gpt-extreme-opt') === 'true';
+        if (savedOpt) toggleOpt(true);
+    }
+
+    // --- Other Hooks ---
+    if (sendBtn) sendBtn.onclick = sendMessage;
+    if (stopBtn) stopBtn.onclick = () => currentAbortController?.abort();
+    if (userInput) {
+        userInput.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+        userInput.oninput = function () { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; };
+    }
+
+    const btnNewChat = document.getElementById('new-chat-sidebar-btn');
+    if (btnNewChat) {
+        btnNewChat.onclick = () => {
+            currentSessionId = null;
+            chatHistory = [];
+            if (chatMessages) chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+            loadSessions();
+        };
+    }
+
+    const plusBtn = document.querySelector('.chat-input-wrapper .plus-btn');
+    const plusMenu = document.querySelector('.chat-input-wrapper .plus-menu');
+    if (plusBtn) plusBtn.onclick = (e) => { e.stopPropagation(); plusMenu?.classList.toggle('hidden'); };
+    document.addEventListener('click', () => { if (plusMenu) plusMenu.classList.add('hidden'); });
+    const navImg = document.getElementById('nav-image-gen');
+    if (navImg) navImg.onclick = () => window.location.href = 'media.html';
+
+    // --- Init ---
+    if (currentUser) {
+        router.navigate('app');
+    } else {
+        router.navigate('home');
+    }
 });

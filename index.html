@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snail GPT | Smart AI 🐌</title>
+    <title>SnailGPT | Smart AI 🐌</title>
     <!-- Modern Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@800;900&family=Outfit:wght@400;500;600&display=swap"
@@ -17,278 +17,326 @@
 </head>
 
 <body class="theme-midnight">
-    <div class="mesh-container"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div class="mesh-container" id="background-mesh"></div>
 
-    <!-- Landing View -->
-    <div id="landing-view" class="view-overlay active">
-        <div class="landing-content">
-            <h1 class="glitch" data-text="SNAIL GPT">SNAIL GPT</h1>
-            <p>The next generation of intelligent research.</p>
-            <div class="landing-btns">
-                <button id="show-signup" class="primary-btn">Sign Up</button>
-                <button id="show-login" class="secondary-btn">Login</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Auth View -->
-    <div id="auth-view" class="view-overlay hidden">
-        <div class="auth-card">
-            <button class="close-overlay"><i class="fas fa-times"></i></button>
-            <h2 id="auth-title">Sign Up</h2>
-            <form id="auth-form">
-                <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" id="auth-email" required>
-                </div>
-                <div class="input-group" id="username-group">
-                    <label>Username</label>
-                    <input type="text" id="auth-username">
-                </div>
-                <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="auth-password" required>
-                </div>
-                <div class="input-group" id="confirm-password-group">
-                    <label>Confirm Password</label>
-                    <input type="password" id="auth-confirm-password">
-                </div>
-                <button type="submit" class="primary-btn" id="auth-submit">Create Account</button>
-            </form>
-            <p class="auth-switch">Already have an account? <span id="switch-to-login">Login</span></p>
-        </div>
-    </div>
-
-    <!-- Success View -->
-    <div id="success-view" class="view-overlay hidden">
-        <div class="landing-content">
-            <h1>Welcome, <span id="welcome-user">User</span>!</h1>
-            <p>Your account has been created successfully.</p>
-            <button id="try-snail-btn" class="primary-btn">Try SnailGPT</button>
-        </div>
-    </div>
-
-    <div id="app-container" class="blur-behind">
-        <!-- Sidebar -->
-        <aside id="sidebar">
-            <!-- Sidebar Header -->
-            <div class="sidebar-header">
-                <div id="user-profile-trigger" class="user-avatar" title="User Profile">
-                    <span id="user-initial">U</span>
-                    <div id="profile-dropdown" class="hidden">
-                        <div class="dropdown-item" id="edit-profile-btn"><i class="fas fa-user-edit"></i> Edit Profile
-                        </div>
-                        <div class="dropdown-item danger" id="sign-out-btn"><i class="fas fa-sign-out-alt"></i> Sign Out
-                        </div>
+    <!-- 1. HOME PAGE -->
+    <div id="home-page" class="page-view active">
+        <div class="hero-content">
+            <div id="home-theme-control" class="home-settings">
+                <div class="custom-dropdown" id="theme-dropdown">
+                    <div class="dropdown-selected">
+                        <i class="fas fa-cog"></i>
                     </div>
-                </div>
-                <button class="new-chat-btn" id="new-chat-sidebar-btn">
-                    <i class="fas fa-plus"></i>
-                    <span>New Research</span>
-                </button>
-                <button id="open-settings-btn" class="settings-cog-btn" title="Settings">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
-
-            <!-- Main Navigation View (Default) -->
-            <div id="sidebar-main-view" class="sidebar-view active">
-                <!-- Session History Section -->
-                <div class="history-section">
-                    <div class="history-label">Previous sessions</div>
-                    <div class="history-list" id="history-list">
-                        <!-- Chat history items will be injected here -->
+                    <div class="dropdown-options">
+                        <div class="option" data-theme="midnight"><i class="fas fa-moon"></i> Midnight Blue</div>
+                        <div class="option" data-theme="crimson"><i class="fas fa-fire"></i> Crimson Red</div>
+                        <div class="option" data-theme="cyber"><i class="fas fa-microchip"></i> Cyber Punk</div>
+                        <div class="option" data-theme="neon"><i class="fas fa-bolt"></i> Neon Green</div>
+                        <div class="option" data-theme="aurora"><i class="fas fa-wind"></i> Aurora Teal</div>
+                        <div class="option" data-theme="neondream"><i class="fas fa-cloud-moon"></i> Neon Dream</div>
+                        <div class="option" data-theme="solarflare"><i class="fas fa-sun"></i> Solar Flare</div>
+                        <div class="option" data-theme="deepsea"><i class="fas fa-water"></i> Deep Sea</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Settings View (Overlay/Sliding) -->
-            <div id="sidebar-settings-view" class="sidebar-view">
-                <div class="view-header">
-                    <button id="back-to-main" class="back-btn">
-                        <i class="fas fa-chevron-left"></i>
-                        <span>Back</span>
-                    </button>
-                    <h2>Settings</h2>
-                </div>
+            <!-- Premium Logo Wordmark -->
+            <div class="hero-wordmark">
+                <div class="hero-badge">AI Research Assistant</div>
+                <h1 class="hero-logo-text">Snail<span class="logo-accent">GPT</span></h1>
+                <p class="hero-tagline">Precision intelligence for the curious mind.</p>
+            </div>
 
-                <div class="settings-content">
-                    <div class="setting-group">
+            <div class="hero-actions">
+                <button id="nav-signup-btn" class="primary-btn">Sign Up</button>
+                <button id="nav-login-btn" class="primary-btn">Log In</button>
+            </div>
 
-                        <div class="setting-group">
-                            <label>Appearance</label>
-                            <!-- Theme Dropdown -->
-                            <div class="custom-dropdown" id="theme-dropdown">
-                                <div class="dropdown-selected">
-                                    <span><i class="fas fa-palette"></i> Theme</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="option" data-theme="midnight"><i class="fas fa-moon"></i> Midnight</div>
-                                    <div class="option" data-theme="crimson"><i class="fas fa-fire"></i> Crimson</div>
-                                    <div class="option" data-theme="cyber"><i class="fas fa-bolt"></i> Cyber</div>
-                                    <div class="option" data-theme="neon"><i class="fas fa-leaf"></i> Neon</div>
-                                    <div class="option" data-theme="aurora"><i class="fas fa-wind"></i> Aurora</div>
-                                    <div class="option" data-theme="neondream"><i class="fas fa-magic"></i> Neon Dream
-                                    </div>
-                                    <div class="option" data-theme="solarflare"><i class="fas fa-sun"></i> Solar Flare
-                                    </div>
-                                    <div class="option" data-theme="deepsea"><i class="fas fa-water"></i> Deep Sea</div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Feature tag row -->
+            <div class="hero-tags">
+                <span class="hero-tag"><i class="fas fa-bolt"></i> Streaming Responses</span>
+                <span class="hero-tag"><i class="fas fa-lock"></i> Private Sessions</span>
+                <span class="hero-tag"><i class="fas fa-palette"></i> Custom Themes</span>
+            </div>
+        </div>
+        <div class="hero-bg-overlay"></div>
+    </div>
 
-                        <div class="setting-group">
-                            <label>Display</label>
-                            <!-- Animation Levels Dropdown -->
-                            <div class="custom-dropdown" id="anim-dropdown">
-                                <div class="dropdown-selected">
-                                    <span><i class="fas fa-film"></i> Animations</span>
-                                    <i class="fas fa-chevron-down"></i>
-                                </div>
-                                <div class="dropdown-options">
-                                    <div class="option" data-anim="none"><i class="fas fa-ban"></i> No Animations</div>
-                                    <div class="option" data-anim="minimal"><i class="fas fa-minus"></i> Minimal</div>
-                                    <div class="option" data-anim="high"><i class="fas fa-bolt"></i> High</div>
-                                </div>
-                            </div>
-                        </div>
+    <!-- 2. AUTH PAGE (Signup & Login) -->
+    <div id="auth-page" class="page-view hidden">
+        <div class="auth-container">
+            <button id="auth-back-home" class="back-link"><i class="fas fa-arrow-left"></i> Home</button>
 
-                        <div class="setting-group">
-                            <label>Performance</label>
-                            <!-- Optimization Toggle -->
-                            <div class="opt-toggle-container">
-                                <button id="extreme-opt-btn" class="opt-btn">
-                                    <i class="fas fa-gauge-high"></i>
-                                    <span>Extreme Optimization</span>
-                                    <div class="toggle-track">
-                                        <div class="toggle-thumb"></div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
+            <!-- Login Card -->
+            <div id="login-section" class="auth-card hidden">
+                <h2>Welcome Back</h2>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label class="tag-label">Identifier</label>
+                        <input type="text" id="login-id" required placeholder="Email or Username">
                     </div>
-                </div>
+                    <div class="input-group">
+                        <label class="tag-label">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" id="login-submit-btn" class="primary-btn">Login</button>
+                    <p class="auth-switch">New researcher? <span id="switch-to-signup-btn">Sign Up</span></p>
+                </form>
+            </div>
 
-                <!-- Sidebar Footer -->
-                <div class="sidebar-footer">
-                    <div class="footer-actions">
-                        <!-- Clear History Button -->
-                        <button id="clear-history-btn" class="sidebar-action-btn danger hidden">
-                            <i class="fas fa-trash-alt"></i>
-                            <span>Clear History</span>
+            <!-- Signup Card -->
+            <div id="signup-section" class="auth-card">
+                <h2>Create Account</h2>
+                <form id="signup-form">
+                    <div class="input-group">
+                        <label class="tag-label">Name</label>
+                        <input type="text" id="signup-username" required placeholder="Snail Researcher">
+                    </div>
+                    <div class="input-group">
+                        <label class="tag-label">Email</label>
+                        <input type="email" id="signup-email" required placeholder="name@example.com">
+                    </div>
+                    <div class="input-group">
+                        <label class="tag-label">Password</label>
+                        <input type="password" id="signup-password" required placeholder="Min 8 characters">
+                    </div>
+                    <div class="input-group">
+                        <label class="tag-label">Confirm Password</label>
+                        <input type="password" id="signup-confirm" required placeholder="Repeat password">
+                    </div>
+                    <button type="submit" id="signup-submit-btn" class="primary-btn">Sign Up</button>
+                    <p class="auth-switch">Already recorded? <span id="switch-to-login-btn">Login</span></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. MAIN APP PAGE -->
+    <div id="app-page" class="page-view hidden">
+        <div id="app-container">
+            <!-- Sidebar -->
+            <aside id="sidebar">
+                <!-- Sidebar Header -->
+                <div class="sidebar-header">
+                    <!-- Profile Avatar with Popup -->
+                    <div class="profile-menu-wrapper" id="profile-menu-wrapper">
+                        <button class="sidebar-profile-avatar" id="sidebar-profile-btn" title="Account">
+                            <span id="user-initial">U</span>
                         </button>
+                        <!-- Sign-Out Popup -->
+                        <div class="profile-popup hidden" id="profile-popup">
+                            <div class="profile-popup-info">
+                                <div class="popup-avatar"><span id="popup-user-initial">U</span></div>
+                                <div class="popup-user-name" id="popup-user-name">Researcher</div>
+                            </div>
+                            <div class="profile-popup-divider"></div>
+                            <button class="profile-popup-item" id="popup-profile-btn">
+                                <i class="fas fa-user-circle"></i> View Profile
+                            </button>
+                            <button class="profile-popup-item danger" id="popup-signout-btn">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </button>
+                        </div>
                     </div>
+                    <button class="new-chat-btn" id="new-chat-sidebar-btn">
+                        <i class="fas fa-plus"></i>
+                        <span>New Research</span>
+                    </button>
+                    <button id="open-settings-btn" class="settings-cog-btn" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
                 </div>
 
-                <!-- Profile Edit Modal -->
-                <div id="edit-profile-modal" class="view-overlay hidden">
-                    <div class="auth-card">
-                        <button id="close-profile-modal" class="close-overlay"><i class="fas fa-times"></i></button>
-                        <h2>Edit Profile</h2>
-                        <form id="edit-profile-form">
+                <!-- Sidebar Body -->
+                <div class="sidebar-body">
+                    <div id="sidebar-main-view" class="sidebar-view active">
+                        <div class="history-section">
+                            <div class="history-label">Previous sessions</div>
+                            <div class="history-list" id="history-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="sidebar-settings-view" class="sidebar-view">
+                        <div class="view-header">
+                            <button id="back-to-main" class="back-btn"><i class="fas fa-chevron-left"></i> Back</button>
+                            <h2>Settings</h2>
+                        </div>
+                        <div class="settings-content">
+                            <div class="setting-group" id="dev-access-container" style="display: none;">
+                                <label>Developer Mode</label>
+                                <button id="dev-access-btn" class="opt-btn"><i class="fas fa-code"></i> Enable
+                                    Dev</button>
+                                <div id="dev-key-container" class="hidden" style="margin-top: 10px;">
+                                    <input type="password" id="dev-token-override" placeholder="HF Override Token"
+                                        style="width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label>Appearance</label>
+                                <div class="custom-dropdown" id="sidebar-theme-dropdown">
+                                    <div class="dropdown-selected"><span><i class="fas fa-palette"></i> Theme</span><i
+                                            class="fas fa-chevron-down"></i></div>
+                                    <div class="dropdown-options">
+                                        <div class="option" data-theme="midnight"><i class="fas fa-moon"></i> Midnight
+                                        </div>
+                                        <div class="option" data-theme="crimson"><i class="fas fa-fire"></i> Crimson
+                                        </div>
+                                        <div class="option" data-theme="cyber"><i class="fas fa-bolt"></i> Cyber</div>
+                                        <div class="option" data-theme="neon"><i class="fas fa-leaf"></i> Neon</div>
+                                        <div class="option" data-theme="aurora"><i class="fas fa-wind"></i> Aurora</div>
+                                        <div class="option" data-theme="neondream"><i class="fas fa-magic"></i> Neon
+                                            Dream</div>
+                                        <div class="option" data-theme="solarflare"><i class="fas fa-sun"></i> Solar
+                                            Flare</div>
+                                        <div class="option" data-theme="deepsea"><i class="fas fa-water"></i> Deep Sea
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-group">
+                                <label>Performance</label>
+                                <button id="extreme-opt-btn" class="opt-btn"><i class="fas fa-gauge-high"></i> Extreme
+                                    Opt</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-footer">
+                    <button id="clear-history-btn" class="sidebar-action-btn danger hidden">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>Clear History</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Chat Area -->
+            <main id="main-content">
+                <header id="main-header">
+                    <div id="logo-text">SNAIL<span>GPT</span></div>
+                    <div class="mode-badge">STATIC</div>
+                </header>
+                <div id="chat-window">
+                    <div id="chat-messages">
+                        <div class="welcome-message">
+                            <h1>How can I assist your research?</h1>
+                        </div>
+                    </div>
+                    <div id="typing-indicator" class="hidden">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+                <div id="input-container">
+                    <div class="input-wrapper">
+                        <button class="extra-action-btn" id="plus-btn"><i class="fas fa-plus"></i></button>
+                        <div class="plus-menu hidden" id="plus-menu">
+                            <div class="menu-item" id="nav-image-gen"><i class="fas fa-image"></i> <span>Generate
+                                    Image</span></div>
+                        </div>
+                        <textarea id="user-input" placeholder="Enter query..." rows="1"></textarea>
+                        <div class="input-actions">
+                            <button id="stop-btn" class="hidden"><i class="fas fa-stop"></i></button>
+                            <button id="send-btn"><i class="fas fa-arrow-up"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 4. PROFILE PAGE -->
+    <div id="profile-page" class="page-view hidden">
+        <div class="profile-container">
+
+            <!-- Profile Header -->
+            <div class="profile-page-header">
+                <button id="profile-back-app" class="back-link"><i class="fas fa-arrow-left"></i> Back to Chat</button>
+            </div>
+
+            <!-- Cover Banner -->
+            <div class="profile-cover-banner">
+                <div class="profile-cover-gradient"></div>
+                <div class="profile-avatar-wrap">
+                    <div class="profile-avatar-large" id="profile-avatar-large">U</div>
+                    <div class="profile-avatar-ring"></div>
+                    <!-- Custom (+) Upload Button -->
+                    <label for="prof-avatar-file" class="avatar-upload-btn" title="Upload Custom Avatar">
+                        <i class="fas fa-plus"></i>
+                    </label>
+                    <button type="button" id="prof-avatar-revert" class="avatar-revert-btn" title="Revert to Default"
+                        style="display: none;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <input type="file" id="prof-avatar-file" accept="image/*" style="display: none;">
+                </div>
+            </div>
+
+            <!-- Name + Stats -->
+            <div class="profile-identity">
+                <h2 id="profile-display-name" class="profile-name">Researcher</h2>
+                <p class="profile-role">SnailGPT Researcher</p>
+                <div class="profile-stats">
+                    <div class="stat-chip"><i class="fas fa-comment-alt"></i> <span id="stat-sessions">0</span> Sessions
+                    </div>
+                    <div class="stat-chip"><i class="fas fa-calendar-alt"></i> <span id="stat-joined">—</span></div>
+                    <div class="stat-chip"><i class="fas fa-shield-alt"></i> Verified</div>
+                </div>
+            </div>
+
+            <!-- Edit Form Card -->
+            <div class="profile-card">
+                <form id="full-profile-edit-form">
+                    <div class="profile-form-grid">
+                        <div class="profile-section">
+                            <h4 class="section-title"><i class="fas fa-user"></i> Account Details</h4>
                             <div class="input-group">
-                                <label>New Username</label>
-                                <input type="text" id="edit-username" placeholder="Leave blank to keep current">
+                                <label>Display Name</label>
+                                <input type="text" id="prof-username" required placeholder="Your name">
                             </div>
                             <div class="input-group">
-                                <label>New Email</label>
-                                <input type="email" id="edit-email" placeholder="Leave blank to keep current">
+                                <label>Primary Email</label>
+                                <input type="email" id="prof-email" required disabled>
                             </div>
+                        </div>
+                        <div class="profile-section">
+                            <h4 class="section-title"><i class="fas fa-lock"></i> Security</h4>
                             <div class="input-group">
                                 <label>New Password</label>
-                                <input type="password" id="edit-password" placeholder="Leave blank to keep current">
+                                <input type="password" id="prof-password" placeholder="Leave blank to keep current">
                             </div>
-                            <button type="submit" class="primary-btn">Verify & Update</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Verification Mock Modal -->
-                <div id="verify-modal" class="view-overlay hidden">
-                    <div class="auth-card" style="text-align: center;">
-                        <h2 style="font-size: 1.2rem;">Verify Identity</h2>
-                        <p style="font-size: 0.9rem; margin-bottom: 20px;">A verification code has been sent to your
-                            email. Enter it below to confirm changes.</p>
-                        <input type="text" id="verify-code" placeholder="000000" maxlength="6"
-                            style="text-align: center; font-size: 1.5rem; letter-spacing: 5px; margin-bottom: 20px; width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
-                        <button id="confirm-verify-btn" class="primary-btn">Confirm Changes</button>
-                        <p id="verify-error" class="hidden"
-                            style="color: #ff4a4a; font-size: 0.8rem; margin-top: 15px;">Invalid code. Please try again.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Simulated Email Notification -->
-                <div id="email-notification" class="email-toast hidden">
-                    <div class="email-icon">
-                        <i class="fas fa-envelope-open-text"></i>
-                    </div>
-                    <div class="email-content">
-                        <div class="email-header">
-                            <strong>SnailGPT Security</strong>
-                            <span>Just now</span>
-                        </div>
-                        <div class="email-body">
-                            Your verification code is: <strong id="sent-code-display">######</strong>
-                            <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Expires in 5 minutes.
-                            </p>
+                            <div class="input-group">
+                                <label>6-Digit Recovery Code</label>
+                                <input type="text" id="prof-verify" placeholder="Required to change password"
+                                    maxlength="6">
+                            </div>
                         </div>
                     </div>
-                </div>
-        </aside>
-
-        <!-- Main Chat Area -->
-        <main id="main-content">
-            <header id="main-header">
-                <div id="logo-text">
-                    SNAIL<span>GPT</span>
-                    <span class="mode-badge online">STATIC MODE</span>
-                </div>
-                <div class="header-actions">
-                    <!-- Actions can go here -->
-                </div>
-            </header>
-
-            <div id="chat-window">
-                <div id="chat-messages">
-                    <div class="welcome-message">
-                        <h1>What are you working on?</h1>
-                    </div>
-                </div>
-
-                <div id="typing-indicator" class="hidden">
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                </div>
-            </div>
-
-            <div id="input-container">
-                <div class="input-wrapper">
-                    <button class="extra-action-btn" id="plus-btn"><i class="fas fa-plus"></i></button>
-                    <!-- Plus Menu Dropdown -->
-                    <div class="plus-menu hidden" id="plus-menu">
-                        <div class="menu-item" id="nav-image-gen">
-                            <i class="fas fa-image"></i>
-                            <span>Image Generation</span>
-                        </div>
-                    </div>
-                    <textarea id="user-input" placeholder="Ask anything" rows="1"></textarea>
-
-                    <div class="input-actions">
-                        <button id="stop-btn" class="hidden" title="Stop Generation">
-                            <i class="fas fa-stop"></i>
-                        </button>
-                        <button id="send-btn" title="Send Message">
-                            <i class="fas fa-arrow-up"></i>
+                    <div class="profile-footer-actions">
+                        <button type="submit" class="primary-btn"><i class="fas fa-save"></i> Save Changes</button>
+                        <button type="button" id="logout-btn-large" class="profile-signout-btn">
+                            <i class="fas fa-sign-out-alt"></i> Sign Out
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
-        </main>
+
+        </div>
     </div>
 
+    <!-- Email Notification Toast -->
+    <div id="email-notification" class="email-toast hidden">
+        <div class="email-icon"><i class="fas fa-envelope-open-text"></i></div>
+        <div class="email-content">
+            <div class="email-header"><strong>SnailGPT Security</strong><span>Just now</span></div>
+            <div class="email-body">Code: <strong id="sent-code-display">######</strong>
+                <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Valid for 5m.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/particles.js"></script>
     <script type="module" src="static/js/main.js"></script>
 </body>
 

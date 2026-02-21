@@ -92,7 +92,7 @@ def ai_answer_stream(message: str, mode: str = "normal"):
     # 2. ChatGPT Personality & Modern Reality Enforcement
     time_context = "Current Date: Friday, January 30, 2026."
     base_sys = (
-        f"You are Snail GPT, a large language model trained by OpenAI, behaving EXACTLY like ChatGPT. "
+        f"You are SnailGPT, a large language model trained by OpenAI, behaving EXACTLY like ChatGPT. "
         f"{time_context} Your goal is to be helpful, accurate, and engaging. "
         "Use Markdown for all formatting. Be polite and objective."
     )
