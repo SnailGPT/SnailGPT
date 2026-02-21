@@ -16,7 +16,7 @@ from huggingface_hub import InferenceClient
 from io import BytesIO
 from PIL import Image
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 CORS(app)
 
 # ================= USER DATABASE =================

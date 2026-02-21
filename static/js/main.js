@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Profile Form Submit (inside loadProfileData to access pendingAvatar) ---
         if (fullProfileEditForm) {
-            fullProfileEditForm.onsubmit = (e) => {
+            fullProfileEditForm.onsubmit = async (e) => {
                 e.preventDefault();
                 const newUsername = (document.getElementById('prof-username') || {}).value?.trim() || '';
                 const newPasswordInput = document.getElementById('prof-password');
@@ -328,12 +328,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!newUsername) return alert('Display name cannot be empty');
 
+                const submitBtn = fullProfileEditForm.querySelector('button[type=submit]');
+                if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
                 if (newPassword) {
                     const correctCode = (currentUser.email === 'kartik.ps.mishra07@gmail.com') ? '150700' : currentUser.recoveryCode;
                     if (!correctCode && currentUser.email !== 'kartik.ps.mishra07@gmail.com') {
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
                         return alert('Legacy accounts cannot change password. Contact the administrator.');
                     }
                     if (correctCode && code !== correctCode) {
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
                         return alert('Invalid 6-Digit Recovery Code. Password change rejected.');
                     }
                 }
@@ -345,7 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             newUsername: newUsername !== currentUser.username ? newUsername : undefined,
                             avatarUrl: avatarData !== undefined ? avatarData : undefined
                         };
-                        // Always send avatarUrl so server knows to update it
                         payload.avatarUrl = avatarData || null;
 
                         if (newPassword) {
@@ -358,8 +362,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         DB.setCurrentUser(currentUser);
                         if (newPasswordInput) newPasswordInput.value = '';
                         if (verifyInput) verifyInput.value = '';
-                        initApp();
+
+                        // Navigate back to app
                         router.navigate('app');
+
+                        // Refresh messages if they were cleared or need re-render
                         setTimeout(() => {
                             if (chatMessages) {
                                 chatMessages.innerHTML = '';
@@ -372,9 +379,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }, 50);
                     } catch (err) {
                         alert(err.message);
+                    } finally {
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; }
                     }
                 };
-                // If a new file was selected, crop it first; otherwise use pendingAvatar directly
+
                 const currentFileInput = document.getElementById('prof-avatar-file');
                 if (currentFileInput && currentFileInput.files && currentFileInput.files[0]) {
                     const file = currentFileInput.files[0];
@@ -396,8 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     reader.readAsDataURL(file);
                 } else {
-                    // Use already-loaded pendingAvatar (null if reverted)
-                    doSave(pendingAvatar);
+                    await doSave(pendingAvatar);
                 }
             };
         }
@@ -466,16 +474,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = userInput.value.trim();
         if (!message) return;
 
-        // Check UI Override first, then LocalStorage, then Config
-        const devInput = document.getElementById('dev-token-override');
-        let apiKey = (devInput && devInput.value.trim()) ? devInput.value.trim() : localStorage.getItem('snail-gpt-hf-token');
-
-        if (!apiKey && CONFIG.DEVELOPER_TOKEN && CONFIG.DEVELOPER_TOKEN !== "REPLACE_WITH_YOUR_HF_TOKEN") {
-            apiKey = CONFIG.DEVELOPER_TOKEN;
-        }
-
-        if (!apiKey) return alert('System API token missing or invalid. Please contact Kartik to configure the master system token.');
-
         appendMessage('user', message);
         userInput.value = '';
         userInput.style.height = 'auto';
@@ -492,24 +490,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const isExtremeOpt = document.body.classList.contains('extreme-opt');
-            const systemPrompt = `You are SnailGPT. Modern Reality: 2026. Behavior: Helpful/Precise. Limit simple answers to 3-4 lines.`;
 
             const payload = {
-                model: CONFIG.MODEL_NAME,
-                messages: [{ role: "system", content: systemPrompt }, ...chatHistory.slice(-10)],
-                stream: true,
-                max_tokens: isExtremeOpt ? 512 : 2048,
-                temperature: isExtremeOpt ? 0.5 : 0.7
+                message: message,
+                extreme_opt: isExtremeOpt
             };
 
-            const response = await fetch(`${CONFIG.API_BASE_URL}/chat/completions`, {
+            const response = await fetch(`/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 signal: currentAbortController.signal
             });
 
-            if (!response.ok) throw new Error("API Connection Failed or Token Invalid");
+            if (!response.ok) throw new Error("Server Connection Failed");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -518,28 +512,18 @@ document.addEventListener('DOMContentLoaded', () => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.replace('data: ', '').trim();
-                        if (dataStr === '[DONE]') break;
-                        try {
-                            const content = JSON.parse(dataStr).choices[0].delta.content || "";
-                            if (content) {
-                                fullText += content;
-                                if (!aiMessageContent) {
-                                    const bubble = document.createElement('div');
-                                    bubble.classList.add('chat-bubble', 'ai');
-                                    bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
-                                    chatMessages.appendChild(bubble);
-                                    aiMessageContent = bubble.querySelector('.message-content');
-                                }
-                                aiMessageContent.innerHTML = marked.parse(fullText);
-                                scrollToBottom();
-                            }
-                        } catch (e) { }
+                const token = decoder.decode(value);
+                if (token) {
+                    fullText += token;
+                    if (!aiMessageContent) {
+                        const bubble = document.createElement('div');
+                        bubble.classList.add('chat-bubble', 'ai');
+                        bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
+                        chatMessages.appendChild(bubble);
+                        aiMessageContent = bubble.querySelector('.message-content');
                     }
+                    aiMessageContent.innerHTML = marked.parse(fullText);
+                    scrollToBottom();
                 }
             }
             chatHistory.push({ role: "assistant", content: fullText });
