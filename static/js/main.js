@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsView = document.getElementById('sidebar-settings-view');
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const backBtn = document.getElementById('back-to-main');
+    const devAccessBtn = document.getElementById('dev-access-btn');
+    const devKeyContainer = document.getElementById('dev-key-container');
+    const devTokenOverrideInput = document.getElementById('dev-token-override');
 
     let currentAbortController = null;
     let currentSessionId = null;
@@ -103,6 +106,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedOpt = localStorage.getItem('snail-gpt-extreme-opt') === 'true';
         if (savedOpt) toggleOpt(true);
     }
+
+    // ================= DEVELOPER ACCESS LOGIC =================
+    const DEV_EMAIL = "kartik.ps.mishra07@gmail.com";
+
+    function checkDevAccess() {
+        const isDev = localStorage.getItem('snail-gpt-is-dev') === 'true';
+        if (isDev && devKeyContainer) {
+            devKeyContainer.classList.remove('hidden');
+            if (devAccessBtn) devAccessBtn.style.display = 'none';
+        }
+    }
+
+    if (devAccessBtn) {
+        devAccessBtn.addEventListener('click', () => {
+            const email = prompt("Enter Developer Email:");
+            if (email === DEV_EMAIL) {
+                localStorage.setItem('snail-gpt-is-dev', 'true');
+                alert("Developer access granted.");
+                checkDevAccess();
+            } else {
+                alert("Access denied.");
+            }
+        });
+    }
+
+    if (devTokenOverrideInput) {
+        devTokenOverrideInput.value = localStorage.getItem('snail-gpt-dev-token') || '';
+        devTokenOverrideInput.addEventListener('input', (e) => {
+            localStorage.setItem('snail-gpt-dev-token', e.target.value);
+        });
+    }
+
+    checkDevAccess();
 
     // ================= MESSAGE HANDLING =================
 
