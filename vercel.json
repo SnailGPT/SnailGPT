@@ -1,0 +1,37 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/chat",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/generate_image",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/sessions",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/session/(.*)",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/clear",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/clear_all",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/",
+            "destination": "/index.html"
+        }
+    ]
+}

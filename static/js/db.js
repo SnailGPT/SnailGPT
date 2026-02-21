@@ -7,84 +7,89 @@
 // Chat HISTORY   → localStorage (device-specific cache)
 // -------------------------------------------------------
 
+const API = '/api';
+
 const DB = {
     // ---- Session (local only – who is logged in on THIS device) ----
     getCurrentUser: () => JSON.parse(localStorage.getItem('snail_user')),
     setCurrentUser: (user) => localStorage.setItem('snail_user', JSON.stringify(user)),
     logout: () => localStorage.removeItem('snail_user'),
 
-    // ---- Account API (local-only for serverless mode) ----
+    // ---- Account API (cross-device) ----
 
+    /**
+     * Register a new user.
+     * Resolves with the created user object on success.
+     * Rejects with an Error whose message can be shown in the UI.
+     */
     registerUser: async (email, username, password) => {
-        // Check if user exists
-        const allUsers = JSON.parse(localStorage.getItem('snail_accounts') || '[]');
-        if (allUsers.find(u => u.email === email)) {
-            throw new Error('email already registered use a different one');
-        }
-        if (allUsers.find(u => u.username === username)) {
-            throw new Error('This display name is already taken. Please choose another.');
+        const res = await fetch(`${API}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, username, password })
+        });
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
         }
 
-        const recoveryCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const newUser = {
-            email,
-            username,
-            password, // Storing plaintext locally for simplicity in this demo mode
-            recoveryCode,
-            avatarUrl: null
-        };
-
-        allUsers.push(newUser);
-        localStorage.setItem('snail_accounts', JSON.stringify(allUsers));
-        return { email, username, recoveryCode };
+        if (!res.ok) throw new Error(data.error || 'Registration failed.');
+        return data; // { email, username, recoveryCode }
     },
 
+    /**
+     * Login with email/username + password.
+     * Resolves with the user object on success.
+     * Rejects with an Error whose message can be shown in the UI.
+     */
     loginUser: async (id, password) => {
-        const allUsers = JSON.parse(localStorage.getItem('snail_accounts') || '[]');
-        const user = allUsers.find(u => (u.email === id || u.username === id) && u.password === password);
+        const res = await fetch(`${API}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, password })
+        });
 
-        if (!user) {
-            throw new Error('Invalid identifier or password.');
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
         }
 
-        return {
-            email: user.email,
-            username: user.username,
-            recoveryCode: user.recoveryCode,
-            avatarUrl: user.avatarUrl
-        };
+        if (!res.ok) throw new Error(data.error || 'Login failed.');
+        return data; // { email, username, recoveryCode, avatarUrl }
     },
 
+    /**
+     * Update user profile.
+     * payload: { email, newUsername?, newPassword?, recoveryCode?, avatarUrl? }
+     * Resolves with the updated user object.
+     */
     updateUser: async (payload) => {
-        const { email, newUsername, newPassword, recoveryCode, avatarUrl } = payload;
-        const allUsers = JSON.parse(localStorage.getItem('snail_accounts') || '[]');
-        const userIndex = allUsers.findIndex(u => u.email === email);
+        const res = await fetch(`${API}/user/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-        if (userIndex === -1) throw new Error('User not found.');
-        const user = allUsers[userIndex];
-
-        if (newUsername && newUsername !== user.username) {
-            if (allUsers.find(u => u.username === newUsername && u.email !== email)) {
-                throw new Error('This display name is already taken.');
-            }
-            user.username = newUsername;
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
         }
 
-        if (newPassword) {
-            const correctCode = (email === 'kartik.ps.mishra07@gmail.com') ? '150700' : user.recoveryCode;
-            if (recoveryCode !== correctCode) {
-                throw new Error('Invalid Recovery Code. Password change rejected.');
-            }
-            user.password = newPassword;
-        }
-
-        if (avatarUrl !== undefined) {
-            user.avatarUrl = avatarUrl;
-        }
-
-        allUsers[userIndex] = user;
-        localStorage.setItem('snail_accounts', JSON.stringify(allUsers));
-        return user;
+        if (!res.ok) throw new Error(data.error || 'Update failed.');
+        return data; // { email, username, recoveryCode, avatarUrl }
     },
 
     // ---- Conversations (local cache – per device) ----

@@ -476,13 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = userInput.value.trim();
         if (!message) return;
 
-        // Get API Key from localStorage (Developer Mode)
-        const apiKey = localStorage.getItem('snail-gpt-hf-token') || "";
-        if (!apiKey) {
-            alert("No Hugging Face token found. Please go to Settings > Developer Mode and enter your HF Token.");
-            return;
-        }
-
         appendMessage('user', message);
         userInput.value = '';
         userInput.style.height = 'auto';
@@ -495,49 +488,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let aiMessageContent = null;
         let fullText = "";
 
-        // Determine Mode
-        const isExtremeOpt = document.body.classList.contains('extreme-opt');
-        const activeMode = isExtremeOpt ? "extreme" : "normal";
-
-        // Build System Prompt
-        const timeContext = "Current Date: Saturday, February 21, 2026.";
-        const baseSys = `You are SnailGPT, a large language model trained by OpenAI, behaving EXACTLY like ChatGPT. ${timeContext} Your goal is to be helpful, accurate, and engaging. Use Markdown for all formatting. Be polite and objective.`;
-
-        let sysPrompt = baseSys;
-        if (activeMode === "extreme") {
-            sysPrompt += " Provide ULTRA-FAST, extremely concise answers. Avoid all fluff. Focus on raw facts.";
-        }
-
-        // Build Messages for Hugging Face
-        const messages = [{ role: "system", content: sysPrompt }];
-        const historyLimit = activeMode === "extreme" ? 2 : 6;
-
-        chatHistory.slice(-historyLimit).forEach(m => {
-            messages.push({ role: m.role, content: m.content });
-        });
-        messages.push({ role: "user", content: message });
+        chatHistory.push({ role: "user", content: message });
 
         try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}/chat/completions`, {
+            const isExtremeOpt = document.body.classList.contains('extreme-opt');
+
+            const payload = {
+                message: message,
+                extreme_opt: isExtremeOpt
+            };
+
+            const response = await fetch(`/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: CONFIG.MODEL_NAME,
-                    messages: messages,
-                    stream: true,
-                    max_tokens: activeMode === "extreme" ? 200 : 800,
-                    temperature: activeMode === "extreme" ? 0.5 : 0.7
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
                 signal: currentAbortController.signal
             });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || `Server Connection Failed (${response.status})`);
-            }
+            if (!response.ok) throw new Error("Server Connection Failed");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -546,49 +514,25 @@ document.addEventListener('DOMContentLoaded', () => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.slice(6).trim();
-                        if (dataStr === '[DONE]') continue;
-
-                        try {
-                            const data = JSON.parse(dataStr);
-                            const token = data.choices[0]?.delta?.content || "";
-
-                            if (token) {
-                                fullText += token;
-                                if (!aiMessageContent) {
-                                    const bubble = document.createElement('div');
-                                    bubble.classList.add('chat-bubble', 'ai');
-                                    bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
-                                    chatMessages.appendChild(bubble);
-                                    aiMessageContent = bubble.querySelector('.message-content');
-                                }
-                                aiMessageContent.innerHTML = marked.parse(fullText);
-                                scrollToBottom();
-                            }
-                        } catch (e) {
-                            console.warn("Error parsing stream chunk:", e);
-                        }
+                const token = decoder.decode(value);
+                if (token) {
+                    fullText += token;
+                    if (!aiMessageContent) {
+                        const bubble = document.createElement('div');
+                        bubble.classList.add('chat-bubble', 'ai');
+                        bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
+                        chatMessages.appendChild(bubble);
+                        aiMessageContent = bubble.querySelector('.message-content');
                     }
+                    aiMessageContent.innerHTML = marked.parse(fullText);
+                    scrollToBottom();
                 }
             }
-
-            chatHistory.push({ role: "user", content: message });
             chatHistory.push({ role: "assistant", content: fullText });
             saveSession();
         } catch (error) {
             toggleTyping(false);
-            if (error.name === 'AbortError') {
-                appendMessage('ai', "_Cancelled._");
-            } else {
-                appendMessage('ai', "⚠️ Error: " + error.message);
-                console.error("Chat Error:", error);
-            }
+            appendMessage('ai', error.name === 'AbortError' ? "_Cancelled._" : "⚠️ Error: " + error.message);
         } finally {
             currentAbortController = null;
             userInput.disabled = false;

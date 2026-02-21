@@ -21,7 +21,9 @@ CORS(app)
 
 # ================= USER DATABASE =================
 
-USERS_DB = os.path.join(os.path.dirname(__file__), 'users.db')
+# Use /tmp for writable DB in serverless environments like Vercel
+IS_VERCEL = "VERCEL" in os.environ
+USERS_DB = os.path.join('/tmp' if IS_VERCEL else os.path.dirname(__file__), 'users.db')
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -63,7 +65,7 @@ init_db()
 # ================= CONFIG (ONLINE ONLY) =================
 
 API_BASE_URL = "https://router.huggingface.co/v1"
-# Required: Set HF_TOKEN in Netlify Environment Variables
+# Required: Set HF_TOKEN in Vercel Project Settings (Environment Variables)
 API_KEY = os.environ.get("HF_TOKEN")
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2:featherless-ai"
 
