@@ -28,7 +28,16 @@ const DB = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, username, password })
         });
-        const data = await res.json();
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
+        }
+
         if (!res.ok) throw new Error(data.error || 'Registration failed.');
         return data; // { email, username, recoveryCode }
     },
@@ -44,7 +53,16 @@ const DB = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, password })
         });
-        const data = await res.json();
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
+        }
+
         if (!res.ok) throw new Error(data.error || 'Login failed.');
         return data; // { email, username, recoveryCode, avatarUrl }
     },
@@ -60,7 +78,16 @@ const DB = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const data = await res.json();
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
+        }
+
         if (!res.ok) throw new Error(data.error || 'Update failed.');
         return data; // { email, username, recoveryCode, avatarUrl }
     },

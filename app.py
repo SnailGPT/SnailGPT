@@ -30,6 +30,14 @@ def get_db():
         db.row_factory = sqlite3.Row
     return db
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    if hasattr(e, 'code') and hasattr(e, 'description'):
+        return jsonify(error=str(e.description)), e.code
+    # Handle non-HTTP exceptions
+    return jsonify(error="Internal Server Error", message=str(e)), 500
+
 @app.teardown_appcontext
 def close_db(exception):
     db = getattr(g, '_database', None)
@@ -385,7 +393,10 @@ def clear_all_history():
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'Invalid or missing JSON payload.'}), 400
+    
     email = (data.get('email') or '').strip().lower()
     username = (data.get('username') or '').strip()
     password = (data.get('password') or '')
@@ -419,7 +430,10 @@ def api_register():
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'Invalid or missing JSON payload.'}), 400
+
     identifier = (data.get('id') or '').strip().lower()
     password = (data.get('password') or '')
 
