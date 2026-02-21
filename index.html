@@ -19,11 +19,69 @@
 <body class="theme-midnight">
     <div class="mesh-container"></div>
 
-    <div id="app-container">
+    <!-- Landing View -->
+    <div id="landing-view" class="view-overlay active">
+        <div class="landing-content">
+            <h1 class="glitch" data-text="SNAIL GPT">SNAIL GPT</h1>
+            <p>The next generation of intelligent research.</p>
+            <div class="landing-btns">
+                <button id="show-signup" class="primary-btn">Sign Up</button>
+                <button id="show-login" class="secondary-btn">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth View -->
+    <div id="auth-view" class="view-overlay hidden">
+        <div class="auth-card">
+            <button class="close-overlay"><i class="fas fa-times"></i></button>
+            <h2 id="auth-title">Sign Up</h2>
+            <form id="auth-form">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="auth-email" required>
+                </div>
+                <div class="input-group" id="username-group">
+                    <label>Username</label>
+                    <input type="text" id="auth-username">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="auth-password" required>
+                </div>
+                <div class="input-group" id="confirm-password-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="auth-confirm-password">
+                </div>
+                <button type="submit" class="primary-btn" id="auth-submit">Create Account</button>
+            </form>
+            <p class="auth-switch">Already have an account? <span id="switch-to-login">Login</span></p>
+        </div>
+    </div>
+
+    <!-- Success View -->
+    <div id="success-view" class="view-overlay hidden">
+        <div class="landing-content">
+            <h1>Welcome, <span id="welcome-user">User</span>!</h1>
+            <p>Your account has been created successfully.</p>
+            <button id="try-snail-btn" class="primary-btn">Try SnailGPT</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="blur-behind">
         <!-- Sidebar -->
         <aside id="sidebar">
             <!-- Sidebar Header -->
             <div class="sidebar-header">
+                <div id="user-profile-trigger" class="user-avatar" title="User Profile">
+                    <span id="user-initial">U</span>
+                    <div id="profile-dropdown" class="hidden">
+                        <div class="dropdown-item" id="edit-profile-btn"><i class="fas fa-user-edit"></i> Edit Profile
+                        </div>
+                        <div class="dropdown-item danger" id="sign-out-btn"><i class="fas fa-sign-out-alt"></i> Sign Out
+                        </div>
+                    </div>
+                </div>
                 <button class="new-chat-btn" id="new-chat-sidebar-btn">
                     <i class="fas fa-plus"></i>
                     <span>New Research</span>
@@ -120,6 +178,62 @@
                             <i class="fas fa-trash-alt"></i>
                             <span>Clear History</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Profile Edit Modal -->
+                <div id="edit-profile-modal" class="view-overlay hidden">
+                    <div class="auth-card">
+                        <button id="close-profile-modal" class="close-overlay"><i class="fas fa-times"></i></button>
+                        <h2>Edit Profile</h2>
+                        <form id="edit-profile-form">
+                            <div class="input-group">
+                                <label>New Username</label>
+                                <input type="text" id="edit-username" placeholder="Leave blank to keep current">
+                            </div>
+                            <div class="input-group">
+                                <label>New Email</label>
+                                <input type="email" id="edit-email" placeholder="Leave blank to keep current">
+                            </div>
+                            <div class="input-group">
+                                <label>New Password</label>
+                                <input type="password" id="edit-password" placeholder="Leave blank to keep current">
+                            </div>
+                            <button type="submit" class="primary-btn">Verify & Update</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Verification Mock Modal -->
+                <div id="verify-modal" class="view-overlay hidden">
+                    <div class="auth-card" style="text-align: center;">
+                        <h2 style="font-size: 1.2rem;">Verify Identity</h2>
+                        <p style="font-size: 0.9rem; margin-bottom: 20px;">A verification code has been sent to your
+                            email. Enter it below to confirm changes.</p>
+                        <input type="text" id="verify-code" placeholder="000000" maxlength="6"
+                            style="text-align: center; font-size: 1.5rem; letter-spacing: 5px; margin-bottom: 20px; width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                        <button id="confirm-verify-btn" class="primary-btn">Confirm Changes</button>
+                        <p id="verify-error" class="hidden"
+                            style="color: #ff4a4a; font-size: 0.8rem; margin-top: 15px;">Invalid code. Please try again.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Simulated Email Notification -->
+                <div id="email-notification" class="email-toast hidden">
+                    <div class="email-icon">
+                        <i class="fas fa-envelope-open-text"></i>
+                    </div>
+                    <div class="email-content">
+                        <div class="email-header">
+                            <strong>SnailGPT Security</strong>
+                            <span>Just now</span>
+                        </div>
+                        <div class="email-body">
+                            Your verification code is: <strong id="sent-code-display">######</strong>
+                            <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Expires in 5 minutes.
+                            </p>
+                        </div>
                     </div>
                 </div>
         </aside>

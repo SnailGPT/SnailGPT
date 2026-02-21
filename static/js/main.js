@@ -15,6 +15,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const devKeyContainer = document.getElementById('dev-key-container');
     const devTokenOverrideInput = document.getElementById('dev-token-override');
 
+    // Auth elements
+    const landingView = document.getElementById('landing-view');
+    const authView = document.getElementById('auth-view');
+    const successView = document.getElementById('success-view');
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const authSubmit = document.getElementById('auth-submit');
+    const showSignupBtn = document.getElementById('show-signup');
+    const showLoginBtn = document.getElementById('show-login');
+    const switchToLogin = document.getElementById('switch-to-login');
+    const trySnailBtn = document.getElementById('try-snail-btn');
+    const welcomeUserSpan = document.getElementById('welcome-user');
+    const usernameGroup = document.getElementById('username-group');
+    const confirmPasswordGroup = document.getElementById('confirm-password-group');
+    const closeOverlays = document.querySelectorAll('.close-overlay');
+
+    // Profile elements
+    const userProfileTrigger = document.getElementById('user-profile-trigger');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    const userInitial = document.getElementById('user-initial');
+    const editProfileBtn = document.getElementById('edit-profile-btn');
+    const signOutBtn = document.getElementById('sign-out-btn');
+    const editProfileModal = document.getElementById('edit-profile-modal');
+    const editProfileForm = document.getElementById('edit-profile-form');
+    const closeProfileModal = document.getElementById('close-profile-modal');
+    const verifyModal = document.getElementById('verify-modal');
+    const confirmVerifyBtn = document.getElementById('confirm-verify-btn');
+    const verifyCodeInput = document.getElementById('verify-code');
+
     let currentAbortController = null;
     let currentSessionId = null;
     let chatHistory = [];
