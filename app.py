@@ -69,17 +69,21 @@ API_BASE_URL = "https://router.huggingface.co/v1"
 API_KEY = os.environ.get("HF_TOKEN")
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2:featherless-ai"
 
-# Current Status
-CURRENT_MODEL = MODEL_NAME
-
-client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=API_KEY,
-    timeout=60.0 
-)
+# Delayed client initialization to prevent crash if HF_TOKEN is missing at startup
+_client = None
 
 def get_client():
-    return client
+    global _client
+    if _client is None:
+        api_key = os.environ.get("HF_TOKEN")
+        if not api_key:
+            raise ValueError("HF_TOKEN environment variable is not set.")
+        _client = OpenAI(
+            base_url=API_BASE_URL,
+            api_key=api_key,
+            timeout=60.0 
+        )
+    return _client
 
 # ================= CORE BRAIN =================
 
