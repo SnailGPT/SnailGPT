@@ -1357,6 +1357,22 @@ body[data-anim="minimal"] #sidebar {
     justify-content: space-between;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--primary-gradient);
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(var(--accent-rgb), 0.3);
+}
+
 #logo-text {
     font-family: 'Orbitron', sans-serif;
     font-size: 26px;

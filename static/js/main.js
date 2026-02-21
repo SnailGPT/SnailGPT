@@ -137,67 +137,51 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Signup Submit
-    if (signupForm) signupForm.onsubmit = (e) => {
+    if (signupForm) signupForm.onsubmit = async (e) => {
         e.preventDefault();
-        const email = document.getElementById('signup-email').value;
-        const username = document.getElementById('signup-username').value;
+        const email = document.getElementById('signup-email').value.trim();
+        const username = document.getElementById('signup-username').value.trim();
         const password = document.getElementById('signup-password').value;
         const confirm = document.getElementById('signup-confirm').value;
 
-        // Developer Override
-        const isDev = (email === DEV_ACCOUNT.email && password === DEV_ACCOUNT.password);
+        if (password !== confirm) return alert("Passwords do not match");
 
-        if (!isDev) {
-            if (password !== confirm) return alert("Passwords do not match");
+        // Developer bypass — still works, but now also stored in the DB
+        const submitBtn = signupForm.querySelector('button[type=submit]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Creating account…'; }
 
-            // Strict duplicate checks
-            const users = DB.getUsers();
-            const emailExists = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-            if (emailExists) return alert("An account with this email already exists. Please login.");
-
-            const usernameExists = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-            if (usernameExists) return alert("This display name is already taken. Please choose another.");
+        try {
+            const newUser = await DB.registerUser(email, username, password);
+            alert(`Account created successfully!\n\nIMPORTANT: Your 6-Digit Recovery Code is: ${newUser.recoveryCode}\n\nPlease save this code. You will need it to change your password in Profile Settings.`);
+            DB.setCurrentUser(newUser);
+            currentUser = newUser;
+            router.navigate('app');
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Sign Up'; }
         }
-
-        const recoveryCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const newUser = { email, username: isDev ? 'Kartik' : username, password, recoveryCode, conversations: [] };
-
-        if (!isDev) {
-            DB.addUser(newUser); // don't persist dev account forcibly over existing if testing
-            alert(`Account created successfully!\n\nIMPORTANT: Your 6-Digit Recovery Code is: ${recoveryCode}\n\nPlease save this code. You will need it to change your password in the Profile Settings.`);
-        }
-
-        DB.setCurrentUser(newUser);
-        currentUser = newUser;
-        router.navigate('app');
     };
 
     // Login Submit
-    if (loginForm) loginForm.onsubmit = (e) => {
+    if (loginForm) loginForm.onsubmit = async (e) => {
         e.preventDefault();
-        const id = document.getElementById('login-id').value;
+        const id = document.getElementById('login-id').value.trim();
         const password = document.getElementById('login-password').value;
 
-        // Developer Override
-        const isDev = (id === DEV_ACCOUNT.email && password === DEV_ACCOUNT.password);
+        const submitBtn = loginForm.querySelector('button[type=submit]');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Logging in…'; }
 
-        if (isDev) {
-            const activeUser = DB.findUser(id) || { email: DEV_ACCOUNT.email, username: 'Kartik', password: DEV_ACCOUNT.password, recoveryCode: '150700', conversations: [] };
-            activeUser.recoveryCode = '150700'; // Enforce admin recovery code
-            DB.setCurrentUser(activeUser);
-            currentUser = activeUser;
-            return router.navigate('app');
+        try {
+            const savedUser = await DB.loginUser(id, password);
+            DB.setCurrentUser(savedUser);
+            currentUser = savedUser;
+            router.navigate('app');
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Login'; }
         }
-
-        const savedUser = DB.findUser(id);
-
-        if (!savedUser || savedUser.password !== password) {
-            return alert("Invalid identifier or password.");
-        }
-
-        DB.setCurrentUser(savedUser);
-        currentUser = savedUser;
-        router.navigate('app');
     };
 
 
@@ -216,6 +200,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 sidebarAvatar.textContent = initial;
                 sidebarAvatar.style.background = '';
                 sidebarAvatar.style.border = '';
+            }
+        }
+
+        // Handle Header Avatar (Top Left next to Logo)
+        const headerAvatar = document.getElementById('header-user-avatar');
+        if (headerAvatar) {
+            if (currentUser.avatarUrl) {
+                headerAvatar.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:32px; height:32px; border-radius:8px; object-fit:cover;">`;
+                headerAvatar.style.display = 'block';
+            } else {
+                headerAvatar.style.display = 'none';
             }
         }
 
@@ -343,15 +338,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                const doSave = (avatarData) => {
-                    const users = DB.getUsers();
-                    const idx = users.findIndex(u => u.email === currentUser.email);
-                    if (idx > -1) {
-                        users[idx].username = newUsername;
-                        if (newPassword) users[idx].password = newPassword;
-                        users[idx].avatarUrl = avatarData || null;
-                        DB.saveUsers(users);
-                        currentUser = users[idx];
+                const doSave = async (avatarData) => {
+                    try {
+                        const payload = {
+                            email: currentUser.email,
+                            newUsername: newUsername !== currentUser.username ? newUsername : undefined,
+                            avatarUrl: avatarData !== undefined ? avatarData : undefined
+                        };
+                        // Always send avatarUrl so server knows to update it
+                        payload.avatarUrl = avatarData || null;
+
+                        if (newPassword) {
+                            payload.newPassword = newPassword;
+                            payload.recoveryCode = code;
+                        }
+
+                        const updated = await DB.updateUser(payload);
+                        currentUser = updated;
                         DB.setCurrentUser(currentUser);
                         if (newPasswordInput) newPasswordInput.value = '';
                         if (verifyInput) verifyInput.value = '';
@@ -367,9 +370,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         }, 50);
+                    } catch (err) {
+                        alert(err.message);
                     }
                 };
-
                 // If a new file was selected, crop it first; otherwise use pendingAvatar directly
                 const currentFileInput = document.getElementById('prof-avatar-file');
                 if (currentFileInput && currentFileInput.files && currentFileInput.files[0]) {
@@ -561,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sender === 'ai') {
             avatarHTML = '🐌';
         } else if (currentUser && currentUser.avatarUrl) {
-            avatarHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:8px; object-fit:cover; display:block;">`;
+            avatarHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:16px; object-fit:cover; display:block;">`;
         }
 
         bubble.innerHTML = `<div class="avatar" ${sender === 'user' && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div><div class="message-wrap"><div class="message-content">${sender === 'ai' ? marked.parse(text) : text}</div></div>`;

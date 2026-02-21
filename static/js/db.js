@@ -1,23 +1,71 @@
 
+// -------------------------------------------------------
+// DB.js — SnailGPT Data Layer
+//
+// User ACCOUNTS → stored server-side (SQLite via Flask API)
+// Current SESSION → localStorage (which user is logged in now)
+// Chat HISTORY   → localStorage (device-specific cache)
+// -------------------------------------------------------
+
+const API = '/api';
+
 const DB = {
-    // --- User Management ---
-    getUsers: () => JSON.parse(localStorage.getItem('snail_users')) || [],
-    saveUsers: (users) => localStorage.setItem('snail_users', JSON.stringify(users)),
-
-    addUser: (user) => {
-        const users = DB.getUsers();
-        users.push(user);
-        DB.saveUsers(users);
-    },
-
-    findUser: (id) => DB.getUsers().find(u => u.email === id || u.username === id),
-
-    // --- Current Session ---
+    // ---- Session (local only – who is logged in on THIS device) ----
     getCurrentUser: () => JSON.parse(localStorage.getItem('snail_user')),
     setCurrentUser: (user) => localStorage.setItem('snail_user', JSON.stringify(user)),
     logout: () => localStorage.removeItem('snail_user'),
 
-    // --- Conversations ---
+    // ---- Account API (cross-device) ----
+
+    /**
+     * Register a new user.
+     * Resolves with the created user object on success.
+     * Rejects with an Error whose message can be shown in the UI.
+     */
+    registerUser: async (email, username, password) => {
+        const res = await fetch(`${API}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed.');
+        return data; // { email, username, recoveryCode }
+    },
+
+    /**
+     * Login with email/username + password.
+     * Resolves with the user object on success.
+     * Rejects with an Error whose message can be shown in the UI.
+     */
+    loginUser: async (id, password) => {
+        const res = await fetch(`${API}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed.');
+        return data; // { email, username, recoveryCode, avatarUrl }
+    },
+
+    /**
+     * Update user profile.
+     * payload: { email, newUsername?, newPassword?, recoveryCode?, avatarUrl? }
+     * Resolves with the updated user object.
+     */
+    updateUser: async (payload) => {
+        const res = await fetch(`${API}/user/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Update failed.');
+        return data; // { email, username, recoveryCode, avatarUrl }
+    },
+
+    // ---- Conversations (local cache – per device) ----
     getConversations: (userId) => {
         const allConvos = JSON.parse(localStorage.getItem('snail_convos')) || {};
         return allConvos[userId] || [];

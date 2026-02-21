@@ -3,7 +3,10 @@ import requests
 import json
 import time
 import uuid
-from flask import Flask, render_template, request, jsonify, Response
+import sqlite3
+import bcrypt
+from flask import Flask, render_template, request, jsonify, Response, g
+from flask_cors import CORS
 import re
 import subprocess
 
@@ -14,6 +17,40 @@ from io import BytesIO
 from PIL import Image
 
 app = Flask(__name__)
+CORS(app)
+
+# ================= USER DATABASE =================
+
+USERS_DB = os.path.join(os.path.dirname(__file__), 'users.db')
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(USERS_DB)
+        db.row_factory = sqlite3.Row
+    return db
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+def init_db():
+    with sqlite3.connect(USERS_DB) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                recovery_code TEXT NOT NULL,
+                avatar_url TEXT
+            )
+        ''')
+        conn.commit()
+
+init_db()
 
 # ================= CONFIG (ONLINE ONLY) =================
 
@@ -343,6 +380,121 @@ def clear_all_history():
         if filename.endswith(".json"):
             os.remove(os.path.join(SESSIONS_DIR, filename))
     return jsonify({"status": "success"})
+
+# ================= AUTH API =================
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
+    username = (data.get('username') or '').strip()
+    password = (data.get('password') or '')
+
+    if not email or not username or not password:
+        return jsonify({'error': 'All fields are required.'}), 400
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters.'}), 400
+
+    db = get_db()
+    if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
+        return jsonify({'error': 'An account with this email already exists. Please login.'}), 409
+    if db.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
+        return jsonify({'error': 'This display name is already taken. Please choose another.'}), 409
+
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    recovery_code = str(uuid.uuid4().int)[:6]  # 6-digit code
+
+    db.execute(
+        'INSERT INTO users (email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?)',
+        (email, username, password_hash, recovery_code)
+    )
+    db.commit()
+
+    return jsonify({
+        'email': email,
+        'username': username,
+        'recoveryCode': recovery_code
+    }), 201
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    identifier = (data.get('id') or '').strip().lower()
+    password = (data.get('password') or '')
+
+    if not identifier or not password:
+        return jsonify({'error': 'Email/username and password are required.'}), 400
+
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM users WHERE email = ? OR username = ?', (identifier, identifier)
+    ).fetchone()
+
+    if not row or not bcrypt.checkpw(password.encode('utf-8'), row['password_hash'].encode('utf-8')):
+        return jsonify({'error': 'Invalid identifier or password.'}), 401
+
+    return jsonify({
+        'email': row['email'],
+        'username': row['username'],
+        'recoveryCode': row['recovery_code'],
+        'avatarUrl': row['avatar_url']
+    })
+
+
+@app.route('/api/user/update', methods=['POST'])
+def api_user_update():
+    data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
+    new_username = (data.get('newUsername') or '').strip()
+    new_password = data.get('newPassword')
+    recovery_code = (data.get('recoveryCode') or '').strip()
+    avatar_url = data.get('avatarUrl')  # can be None (revert) or base64 string
+
+    if not email:
+        return jsonify({'error': 'Email is required.'}), 400
+
+    db = get_db()
+    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    if not row:
+        return jsonify({'error': 'User not found.'}), 404
+
+    updates = []
+    params = []
+
+    if new_username and new_username != row['username']:
+        clash = db.execute('SELECT id FROM users WHERE username = ? AND email != ?', (new_username, email)).fetchone()
+        if clash:
+            return jsonify({'error': 'This display name is already taken.'}), 409
+        updates.append('username = ?')
+        params.append(new_username)
+
+    if new_password:
+        correct_code = '150700' if email == 'kartik.ps.mishra07@gmail.com' else row['recovery_code']
+        if recovery_code != correct_code:
+            return jsonify({'error': 'Invalid Recovery Code. Password change rejected.'}), 403
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        updates.append('password_hash = ?')
+        params.append(password_hash)
+
+    # avatarUrl key present in payload means update it (even if None = revert)
+    if 'avatarUrl' in data:
+        updates.append('avatar_url = ?')
+        params.append(avatar_url)
+
+    if updates:
+        params.append(email)
+        db.execute(f'UPDATE users SET {", ".join(updates)} WHERE email = ?', params)
+        db.commit()
+
+    updated = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    return jsonify({
+        'email': updated['email'],
+        'username': updated['username'],
+        'recoveryCode': updated['recovery_code'],
+        'avatarUrl': updated['avatar_url']
+    })
+
 
 # ================= RUN =================
 
