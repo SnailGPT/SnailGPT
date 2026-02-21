@@ -67,7 +67,7 @@ init_db()
 API_BASE_URL = "https://router.huggingface.co/v1"
 # Required: Set HF_TOKEN in Vercel Project Settings (Environment Variables)
 API_KEY = os.environ.get("HF_TOKEN")
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2:featherless-ai"
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 
 # Delayed client initialization to prevent crash if HF_TOKEN is missing at startup
 _client = None
@@ -86,6 +86,8 @@ def get_client():
     return _client
 
 # ================= CORE BRAIN =================
+
+chat_history = []
 
 # SESSIONS_DIR is ephemeral on Netlify
 SESSIONS_DIR = "/tmp/chat_sessions"
@@ -106,7 +108,6 @@ def generate_response(messages, stream=False, mode="normal"):
         temp = 0.7 
     
     try:
-        # Use lazy client to avoid startup hangs in airplane mode
         c = get_client()
         completion = c.chat.completions.create(
             model=MODEL_NAME,
@@ -116,10 +117,6 @@ def generate_response(messages, stream=False, mode="normal"):
             max_tokens=max_tokens
         )
         return completion
-    except (requests.exceptions.Timeout, openai.APITimeoutError):
-        return "❌ Error: The AI server is taking too long to respond. This usually happens during the first run as the model loads into your GPU/RAM. Try again in a few seconds."
-    except (requests.exceptions.ConnectionError, openai.APIConnectionError):
-        return "❌ Connection Error: Could not connect to the AI server. Please check your internet connection or API Token."
     except Exception as e:
         return f"❌ API execution error: {str(e)}"
 
@@ -181,34 +178,29 @@ def ai_answer_stream(message: str, mode: str = "normal"):
     messages.append({"role": "user", "content": message})
 
     # 4. Request
-    response = generate_response(messages, stream=True, mode=active_mode)
-    
-    full_content = ""
-    # FIX: Check for string (error) first
-    if isinstance(response, str):
-        yield response
-    elif hasattr(response, '__iter__'):
-        try:
-            in_thought_block = False
-            has_yielded = False
-            for chunk in response:
-                if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                    content = getattr(chunk.choices[0].delta, 'content', '')
-                    if content:
-                        has_yielded = True
-                        full_content += content
-                        
-                        # Strip DeepSeek <think> blocks from the user visible stream
-                        if "<think>" in content:
-                            in_thought_block = True
-                            continue
-                        if not in_thought_block:
-                            yield content
+    try:
+        completion = generate_response(messages, stream=True, mode=active_mode)
+        
+        if isinstance(completion, str): # Error message
+            yield completion
+            return
 
-            if not has_yielded:
-                yield "⚠️ The AI server returned an empty response. This might be due to a token limitation or server load. Please try again."
-        except Exception as e:
-            yield f"\n⚠️ Stream Error: {str(e)}"
+        full_content = ""
+        has_yielded = False
+        
+        for chunk in completion:
+            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                content = getattr(chunk.choices[0].delta, 'content', '')
+                if content:
+                    has_yielded = True
+                    full_content += content
+                    yield content
+        
+        if not has_yielded:
+            yield "⚠️ The AI server returned an empty response. Check your API token or model availability."
+
+    except Exception as e:
+        yield f"❌ Error: {str(e)}"
     chat_history.append({"role": "User", "content": message})
     chat_history.append({"role": "Assistant", "content": full_content})
     
@@ -310,19 +302,24 @@ def generate_image():
             model="ByteDance/SDXL-Lightning"
         )
         
-        # Save Image
+        # Save Image to /tmp (writable in Vercel)
         filename = f"gen_{uuid.uuid4()}.png"
-        save_dir = os.path.join("static", "generated_images")
+        save_dir = os.path.join("/tmp", "generated_images")
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
         
         image.save(save_path)
         
-        return jsonify({"image_url": f"/static/generated_images/{filename}"})
+        return jsonify({"image_url": f"/api/images/{filename}"})
 
     except Exception as e:
         print(f"Image Gen Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/images/<filename>")
+def serve_generated_image(filename):
+    from flask import send_from_directory
+    return send_from_directory(os.path.join("/tmp", "generated_images"), filename)
 
 @app.route("/chat", methods=["POST"])
 def chat():
