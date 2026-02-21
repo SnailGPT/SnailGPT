@@ -500,9 +500,22 @@
                     }
                 );
 
-                if (!response.ok) throw new Error('API Error');
+                if (!response.ok) {
+                    let msg = 'Unknown API Error';
+                    try {
+                        const err = await response.json();
+                        msg = err.error || err.message || msg;
+                    } catch (e) { }
+                    throw new Error(msg);
+                }
 
                 const blob = await response.blob();
+                if (blob.type.includes('application/json')) {
+                    // Sometimes Hugging Face returns successful status but JSON error (e.g. model loading)
+                    const text = await blob.text();
+                    const json = JSON.parse(text);
+                    throw new Error(json.error || 'Model is still loading, try again in 30s');
+                }
                 const imageUrl = URL.createObjectURL(blob);
 
                 if (typingBubble) typingBubble.remove();

@@ -230,8 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || 'API Error');
+                let errorMessage = `API Error ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error?.message || errorData.message || errorMessage;
+                } catch (e) {
+                    // If not JSON, try text
+                    const errorText = await response.text();
+                    errorMessage = errorText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
             const reader = response.body.getReader();
@@ -285,8 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (aiMessageContent) aiMessageContent.innerHTML += "<br>_Generation cancelled._";
                 else appendMessage('ai', "_Generation cancelled._");
             } else {
-                appendMessage('ai', `⚠️ **Error:** ${error.message}`);
-                console.error('Chat error:', error);
+                const displayError = `⚠️ **System Error:** ${error.message}\n\n*Technical Details: Check your API Token or Model Availability.*`;
+                if (aiMessageContent) aiMessageContent.innerHTML = marked.parse(displayError);
+                else appendMessage('ai', displayError);
+                console.error('SnailGPT Integration Error:', error);
             }
         } finally {
             currentAbortController = null;
