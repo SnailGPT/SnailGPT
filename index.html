@@ -24,9 +24,6 @@
         <aside id="sidebar">
             <!-- Sidebar Header -->
             <div class="sidebar-header">
-                <div class="title-input-container">
-                    <input type="text" id="chat-title-input" placeholder="Research Title (Optional)" maxlength="40">
-                </div>
                 <button class="new-chat-btn" id="new-chat-sidebar-btn">
                     <i class="fas fa-plus"></i>
                     <span>New Research</span>
@@ -59,76 +56,72 @@
 
                 <div class="settings-content">
                     <div class="setting-group">
-                        <label>API Configuration</label>
-                        <input type="password" id="hf-token-input" placeholder="Hugging Face Token (HF_...)"
-                            style="width: 100%; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white;">
-                        <p style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Stored locally in your
-                            browser only.</p>
-                    </div>
 
-                    <div class="setting-group">
-                        <label>Appearance</label>
-                        <!-- Theme Dropdown -->
-                        <div class="custom-dropdown" id="theme-dropdown">
-                            <div class="dropdown-selected">
-                                <span><i class="fas fa-palette"></i> Theme</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </div>
-                            <div class="dropdown-options">
-                                <div class="option" data-theme="midnight"><i class="fas fa-moon"></i> Midnight</div>
-                                <div class="option" data-theme="crimson"><i class="fas fa-fire"></i> Crimson</div>
-                                <div class="option" data-theme="cyber"><i class="fas fa-bolt"></i> Cyber</div>
-                                <div class="option" data-theme="neon"><i class="fas fa-leaf"></i> Neon</div>
-                                <div class="option" data-theme="aurora"><i class="fas fa-wind"></i> Aurora</div>
-                                <div class="option" data-theme="neondream"><i class="fas fa-magic"></i> Neon Dream</div>
-                                <div class="option" data-theme="solarflare"><i class="fas fa-sun"></i> Solar Flare</div>
-                                <div class="option" data-theme="deepsea"><i class="fas fa-water"></i> Deep Sea</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Display</label>
-                        <!-- Animation Levels Dropdown -->
-                        <div class="custom-dropdown" id="anim-dropdown">
-                            <div class="dropdown-selected">
-                                <span><i class="fas fa-film"></i> Animations</span>
-                                <i class="fas fa-chevron-down"></i>
-                            </div>
-                            <div class="dropdown-options">
-                                <div class="option" data-anim="none"><i class="fas fa-ban"></i> No Animations</div>
-                                <div class="option" data-anim="minimal"><i class="fas fa-minus"></i> Minimal</div>
-                                <div class="option" data-anim="high"><i class="fas fa-bolt"></i> High</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="setting-group">
-                        <label>Performance</label>
-                        <!-- Optimization Toggle -->
-                        <div class="opt-toggle-container">
-                            <button id="extreme-opt-btn" class="opt-btn">
-                                <i class="fas fa-gauge-high"></i>
-                                <span>Extreme Optimization</span>
-                                <div class="toggle-track">
-                                    <div class="toggle-thumb"></div>
+                        <div class="setting-group">
+                            <label>Appearance</label>
+                            <!-- Theme Dropdown -->
+                            <div class="custom-dropdown" id="theme-dropdown">
+                                <div class="dropdown-selected">
+                                    <span><i class="fas fa-palette"></i> Theme</span>
+                                    <i class="fas fa-chevron-down"></i>
                                 </div>
-                            </button>
+                                <div class="dropdown-options">
+                                    <div class="option" data-theme="midnight"><i class="fas fa-moon"></i> Midnight</div>
+                                    <div class="option" data-theme="crimson"><i class="fas fa-fire"></i> Crimson</div>
+                                    <div class="option" data-theme="cyber"><i class="fas fa-bolt"></i> Cyber</div>
+                                    <div class="option" data-theme="neon"><i class="fas fa-leaf"></i> Neon</div>
+                                    <div class="option" data-theme="aurora"><i class="fas fa-wind"></i> Aurora</div>
+                                    <div class="option" data-theme="neondream"><i class="fas fa-magic"></i> Neon Dream
+                                    </div>
+                                    <div class="option" data-theme="solarflare"><i class="fas fa-sun"></i> Solar Flare
+                                    </div>
+                                    <div class="option" data-theme="deepsea"><i class="fas fa-water"></i> Deep Sea</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Display</label>
+                            <!-- Animation Levels Dropdown -->
+                            <div class="custom-dropdown" id="anim-dropdown">
+                                <div class="dropdown-selected">
+                                    <span><i class="fas fa-film"></i> Animations</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div class="dropdown-options">
+                                    <div class="option" data-anim="none"><i class="fas fa-ban"></i> No Animations</div>
+                                    <div class="option" data-anim="minimal"><i class="fas fa-minus"></i> Minimal</div>
+                                    <div class="option" data-anim="high"><i class="fas fa-bolt"></i> High</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Performance</label>
+                            <!-- Optimization Toggle -->
+                            <div class="opt-toggle-container">
+                                <button id="extreme-opt-btn" class="opt-btn">
+                                    <i class="fas fa-gauge-high"></i>
+                                    <span>Extreme Optimization</span>
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sidebar Footer -->
-            <div class="sidebar-footer">
-                <div class="footer-actions">
-                    <!-- Clear History Button -->
-                    <button id="clear-history-btn" class="sidebar-action-btn danger hidden">
-                        <i class="fas fa-trash-alt"></i>
-                        <span>Clear History</span>
-                    </button>
+                <!-- Sidebar Footer -->
+                <div class="sidebar-footer">
+                    <div class="footer-actions">
+                        <!-- Clear History Button -->
+                        <button id="clear-history-btn" class="sidebar-action-btn danger hidden">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>Clear History</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
         </aside>
 
         <!-- Main Chat Area -->

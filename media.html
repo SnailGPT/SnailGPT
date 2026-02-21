@@ -450,10 +450,12 @@
             const prompt = textarea.value.trim();
             if (!prompt) return;
 
-            const apiKey = localStorage.getItem('snail-gpt-hf-token');
+            const apiKey = CONFIG.DEVELOPER_TOKEN && CONFIG.DEVELOPER_TOKEN !== "REPLACE_WITH_YOUR_HF_TOKEN"
+                ? CONFIG.DEVELOPER_TOKEN
+                : localStorage.getItem('snail-gpt-hf-token');
+
             if (!apiKey) {
-                alert('Please set your Hugging Face Token in the Chat settings first!');
-                window.location.href = 'index.html';
+                alert('Developer Token not set! Please set DEVELOPER_TOKEN in static/js/config.js');
                 return;
             }
 

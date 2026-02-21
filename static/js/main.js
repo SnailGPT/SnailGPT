@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsView = document.getElementById('sidebar-settings-view');
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const backBtn = document.getElementById('back-to-main');
-    const hfTokenInput = document.getElementById('hf-token-input');
 
     let currentAbortController = null;
     let currentSessionId = null;
@@ -89,12 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('active'));
     });
 
-    if (hfTokenInput) {
-        hfTokenInput.value = localStorage.getItem('snail-gpt-hf-token') || '';
-        hfTokenInput.addEventListener('input', (e) => {
-            localStorage.setItem('snail-gpt-hf-token', e.target.value);
-        });
-    }
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('active'));
+    });
 
     const optBtn = document.getElementById('extreme-opt-btn');
     if (optBtn) {
@@ -176,10 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = userInput.value.trim();
         if (!message) return;
 
-        const apiKey = localStorage.getItem('snail-gpt-hf-token');
+        const apiKey = CONFIG.DEVELOPER_TOKEN && CONFIG.DEVELOPER_TOKEN !== "REPLACE_WITH_YOUR_HF_TOKEN"
+            ? CONFIG.DEVELOPER_TOKEN
+            : localStorage.getItem('snail-gpt-hf-token');
+
         if (!apiKey) {
-            alert('Please enter your Hugging Face Token in Settings first!');
-            openSettingsBtn.click();
+            alert('Developer Token not set! Please set DEVELOPER_TOKEN in static/js/config.js');
             return;
         }
 
@@ -205,7 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Build messages with system prompt
             const time_context = `Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.`;
-            const systemPrompt = `You are Snail GPT, behaving like ChatGPT. ${time_context} Use Markdown.`;
+            const systemPrompt = `You are Snail GPT, an advanced AI based on GPT-4 architecture. 
+            Behavior: Helpful, extremely accurate, and objective. 
+            Constraint: For simple questions or greetings, answer in 3 to 4 lines maximum. 
+            Context: ${time_context} Use Markdown for formatting.`;
 
             const messages = [
                 { role: "system", content: systemPrompt },
