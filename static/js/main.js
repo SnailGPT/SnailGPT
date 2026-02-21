@@ -1,3 +1,5 @@
+import CONFIG from './config.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
@@ -9,9 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsView = document.getElementById('sidebar-settings-view');
     const openSettingsBtn = document.getElementById('open-settings-btn');
     const backBtn = document.getElementById('back-to-main');
+    const hfTokenInput = document.getElementById('hf-token-input');
 
     let currentAbortController = null;
     let currentSessionId = null;
+    let chatHistory = [];
 
     // ================= SETTINGS & DROPDOWN LOGIC =================
 
@@ -24,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         selected.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Close other dropdowns
             document.querySelectorAll('.custom-dropdown').forEach(d => {
                 if (d !== dropdown) d.classList.remove('active');
             });
@@ -47,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Load Initial Value
         const savedValue = localStorage.getItem(storageKey) || defaultVal;
         if (savedValue) {
             const initialOption = [...options].find(opt =>
@@ -57,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 (opt.getAttribute('data-theme') === savedValue.replace('theme-', ''))
             );
             if (initialOption) {
-                // Manually trigger UI update logic for the initial state
                 const icon = initialOption.querySelector('i') ? initialOption.querySelector('i').className : 'fas fa-cog';
                 selected.querySelector('span').innerHTML = `<i class="${icon}"></i> ${initialOption.innerText.trim()}`;
                 options.forEach(opt => opt.classList.remove('selected'));
@@ -67,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Apply Functions
     const applyTheme = (theme) => {
         if (!theme) return;
         const themeClass = `theme-${theme.replace('theme-', '')}`;
@@ -82,16 +82,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.setAttribute('data-anim', level);
     };
 
-    // Initialize Dropdowns
     setupDropdown('theme-dropdown', 'snail-gpt-theme', applyTheme, 'midnight');
     setupDropdown('anim-dropdown', 'snail-gpt-anim', applyAnim, 'high');
 
-    // Global click listener to close dropdowns
     document.addEventListener('click', () => {
         document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('active'));
     });
 
-    // ================= EXTREME OPTIMIZATION LOGIC =================
+    if (hfTokenInput) {
+        hfTokenInput.value = localStorage.getItem('snail-gpt-hf-token') || '';
+        hfTokenInput.addEventListener('input', (e) => {
+            localStorage.setItem('snail-gpt-hf-token', e.target.value);
+        });
+    }
+
     const optBtn = document.getElementById('extreme-opt-btn');
     if (optBtn) {
         const toggleOpt = (forceState = null) => {
@@ -99,10 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.toggle('extreme-opt', isOpt);
             localStorage.setItem('snail-gpt-extreme-opt', isOpt);
         };
-
         optBtn.addEventListener('click', () => toggleOpt());
-
-        // Initial Load
         const savedOpt = localStorage.getItem('snail-gpt-extreme-opt') === 'true';
         if (savedOpt) toggleOpt(true);
     }
@@ -112,24 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const greetings = [
         "What are you working on?",
         "How can I help you today?",
-        "What's on your mind?",
-        "Ready to start some research?",
-        "What are we building today?",
-        "Need a hand with something?",
-        "How can Snail GPT assist you?",
         "What's the plan for today?",
-        "Looking for some answers?",
-        "Let's dive into some data.",
-        "What's the next big idea?",
-        "How's the project coming along?",
-        "Type your prompt to begin.",
-        "Snail GPT is ready for orders.",
-        "What's the research goal?",
-        "Tell me what you're thinking.",
-        "Let's solve some problems.",
-        "What can I find for you?",
-        "How can I make your day easier?",
-        "Ready for some high-motion research?"
+        "Let's solve some problems."
     ];
 
     function getRandomGreeting() {
@@ -161,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.appendChild(wrap);
         chatMessages.appendChild(bubble);
 
-        // Remove welcome message on first interaction
         const welcome = document.querySelector('.welcome-message');
         if (welcome) {
             welcome.style.opacity = '0';
@@ -179,15 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function toggleTyping(show, statusText = "Snail is thinking...") {
-        const indicatorText = typingIndicator.querySelector('.status-text') || document.createElement('span');
-        if (!typingIndicator.querySelector('.status-text')) {
-            indicatorText.classList.add('status-text');
-            typingIndicator.appendChild(indicatorText);
-        }
-
+    function toggleTyping(show) {
         if (show) {
-            // indicatorText.textContent = statusText; // Removed per user request
             typingIndicator.classList.remove('hidden');
         } else {
             typingIndicator.classList.add('hidden');
@@ -199,12 +176,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = userInput.value.trim();
         if (!message) return;
 
-        // Display user message
+        const apiKey = localStorage.getItem('snail-gpt-hf-token');
+        if (!apiKey) {
+            alert('Please enter your Hugging Face Token in Settings first!');
+            openSettingsBtn.click();
+            return;
+        }
+
         appendMessage('user', message);
         userInput.value = '';
         userInput.style.height = 'auto';
 
-        // UI State
         userInput.disabled = true;
         sendBtn.classList.add('hidden');
         stopBtn.classList.remove('hidden');
@@ -215,23 +197,41 @@ document.addEventListener('DOMContentLoaded', () => {
         let aiMessageContent = null;
         let fullText = "";
 
+        // Add to history state
+        chatHistory.push({ role: "user", content: message });
+
         try {
             const isExtremeOpt = document.body.classList.contains('extreme-opt');
-            const chatTitleInput = document.getElementById('chat-title-input');
-            const chatTitle = chatTitleInput ? chatTitleInput.value.trim() : null;
 
-            const response = await fetch('/chat', {
+            // Build messages with system prompt
+            const time_context = `Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.`;
+            const systemPrompt = `You are Snail GPT, behaving like ChatGPT. ${time_context} Use Markdown.`;
+
+            const messages = [
+                { role: "system", content: systemPrompt },
+                ...chatHistory.slice(-5) // Send last 5 message for context
+            ];
+
+            const response = await fetch(`${CONFIG.API_BASE_URL}/chat/completions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
                 body: JSON.stringify({
-                    message,
-                    title: chatTitle,
-                    extreme_opt: isExtremeOpt
+                    model: CONFIG.MODEL_NAME,
+                    messages: messages,
+                    stream: true,
+                    max_tokens: isExtremeOpt ? 200 : 800,
+                    temperature: 0.7
                 }),
                 signal: currentAbortController.signal
             });
 
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'API Error');
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -242,46 +242,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                fullText += chunk;
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
 
-                if (!aiMessageBubble) {
-                    // Create the AI bubble on first chunk
-                    aiMessageBubble = document.createElement('div');
-                    aiMessageBubble.classList.add('chat-bubble', 'ai');
-
-                    const avatar = document.createElement('div');
-                    avatar.classList.add('avatar');
-                    avatar.innerHTML = '🐌';
-
-                    const wrap = document.createElement('div');
-                    wrap.classList.add('message-wrap');
-
-                    const senderName = document.createElement('span');
-                    senderName.classList.add('message-sender');
-                    senderName.textContent = 'Snail GPT';
-
-                    aiMessageContent = document.createElement('div');
-                    aiMessageContent.classList.add('message-content');
-
-                    wrap.appendChild(senderName);
-                    wrap.appendChild(aiMessageContent);
-                    aiMessageBubble.appendChild(avatar);
-                    aiMessageBubble.appendChild(wrap);
-                    chatMessages.appendChild(aiMessageBubble);
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.replace('data: ', '').trim();
+                        if (dataStr === '[DONE]') break;
+                        try {
+                            const json = JSON.parse(dataStr);
+                            const content = json.choices[0].delta.content || "";
+                            if (content) {
+                                fullText += content;
+                                if (!aiMessageBubble) {
+                                    aiMessageBubble = document.createElement('div');
+                                    aiMessageBubble.classList.add('chat-bubble', 'ai');
+                                    aiMessageBubble.innerHTML = `
+                                        <div class="avatar">🐌</div>
+                                        <div class="message-wrap">
+                                            <span class="message-sender">Snail GPT</span>
+                                            <div class="message-content"></div>
+                                        </div>
+                                    `;
+                                    chatMessages.appendChild(aiMessageBubble);
+                                    aiMessageContent = aiMessageBubble.querySelector('.message-content');
+                                }
+                                aiMessageContent.innerHTML = marked.parse(fullText);
+                                scrollToBottom();
+                            }
+                        } catch (e) { }
+                    }
                 }
-
-                // Update content in real-time
-                aiMessageContent.innerHTML = marked.parse(fullText);
-                scrollToBottom();
             }
 
-            // Refresh sessions list after first message of a new session
-            if (!currentSessionId) {
-                // We don't have the ID yet, but the backend created one on save.
-                // Fetch the latest sessions to find it.
-                await loadSessions();
-            }
+            chatHistory.push({ role: "assistant", content: fullText });
+            saveSession();
 
         } catch (error) {
             toggleTyping(false);
@@ -289,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (aiMessageContent) aiMessageContent.innerHTML += "<br>_Generation cancelled._";
                 else appendMessage('ai', "_Generation cancelled._");
             } else {
-                appendMessage('ai', "⚠️ **Error:** Connection lost. Please check if Ollama is running.");
+                appendMessage('ai', `⚠️ **Error:** ${error.message}`);
                 console.error('Chat error:', error);
             }
         } finally {
@@ -301,16 +296,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Stop button logic
-    stopBtn.addEventListener('click', () => {
-        if (currentAbortController) {
-            currentAbortController.abort();
+    function saveSession() {
+        if (!chatHistory.length) return;
+
+        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
+        if (!currentSessionId) {
+            currentSessionId = Date.now().toString();
+            const title = chatHistory[0].content.substring(0, 30) + (chatHistory[0].content.length > 30 ? '...' : '');
+            sessions.unshift({ id: currentSessionId, title, history: chatHistory, updated_at: Date.now() });
+        } else {
+            const index = sessions.findIndex(s => s.id === currentSessionId);
+            if (index !== -1) {
+                sessions[index].history = chatHistory;
+                sessions[index].updated_at = Date.now();
+            }
         }
-    });
+        localStorage.setItem('snail-gpt-sessions', JSON.stringify(sessions));
+        loadSessions();
+    }
+
+    function loadSessions() {
+        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
+        historyList.innerHTML = '';
+
+        const clearHistoryBtn = document.getElementById('clear-history-btn');
+        if (clearHistoryBtn) {
+            clearHistoryBtn.classList.toggle('hidden', sessions.length === 0);
+        }
+
+        sessions.forEach(session => {
+            const item = document.createElement('div');
+            item.classList.add('history-item');
+            if (session.id === currentSessionId) item.classList.add('active');
+            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${session.title}</span>`;
+            item.addEventListener('click', () => loadSession(session.id));
+            historyList.appendChild(item);
+        });
+    }
+
+    function loadSession(id) {
+        const sessions = JSON.parse(localStorage.getItem('snail-gpt-sessions') || '[]');
+        const session = sessions.find(s => s.id === id);
+        if (session) {
+            currentSessionId = id;
+            chatHistory = session.history;
+            chatMessages.innerHTML = '';
+            chatHistory.forEach(msg => {
+                appendMessage(msg.role === 'assistant' ? 'ai' : 'user', msg.content);
+            });
+            loadSessions();
+        }
+    }
 
     // ================= UI INTERACTION =================
 
     sendBtn.addEventListener('click', sendMessage);
+    stopBtn.addEventListener('click', () => currentAbortController?.abort());
 
     userInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -319,147 +360,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // New Chat functionality
     const newChatBtn = document.getElementById('new-chat-sidebar-btn');
     if (newChatBtn) {
-        newChatBtn.addEventListener('click', async () => {
-            try {
-                await fetch('/clear', { method: 'POST' });
-                currentSessionId = null;
-                const chatTitleInput = document.getElementById('chat-title-input');
-                if (chatTitleInput) {
-                    chatTitleInput.value = '';
-                    chatTitleInput.disabled = false;
-                }
-                chatMessages.innerHTML = `
-                    <div class="welcome-message">
-                        <h1>${getRandomGreeting()}</h1>
-                    </div>
-                `;
-                // Remove active state from history items
-                document.querySelectorAll('.history-item').forEach(item => item.classList.remove('active'));
-            } catch (error) {
-                console.error('Error clearing chat:', error);
-            }
+        newChatBtn.addEventListener('click', () => {
+            currentSessionId = null;
+            chatHistory = [];
+            chatMessages.innerHTML = `<div class="welcome-message"><h1>${getRandomGreeting()}</h1></div>`;
+            document.querySelectorAll('.history-item').forEach(item => item.classList.remove('active'));
         });
-    }
-
-    // History Loading Logic
-    async function loadSessions() {
-        try {
-            const response = await fetch('/sessions');
-            const sessions = await response.json();
-
-            historyList.innerHTML = '';
-
-            // Show/Hide Clear History button
-            const clearHistoryBtn = document.getElementById('clear-history-btn');
-            if (clearHistoryBtn) {
-                if (sessions.length > 0) {
-                    clearHistoryBtn.classList.remove('hidden');
-                } else {
-                    clearHistoryBtn.classList.add('hidden');
-                }
-            }
-
-            sessions.forEach(session => {
-                const item = document.createElement('div');
-                item.classList.add('history-item');
-                if (session.id === currentSessionId) item.classList.add('active');
-                item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${session.title}</span>`;
-                item.addEventListener('click', () => loadSession(session.id));
-                historyList.appendChild(item);
-            });
-        } catch (error) {
-            console.error('Error loading sessions:', error);
-        }
-    }
-
-    async function loadSession(id) {
-        if (id === currentSessionId) return;
-
-        try {
-            const response = await fetch(`/session/${id}`);
-            const data = await response.json();
-
-            currentSessionId = id;
-            chatMessages.innerHTML = '';
-
-            data.history.forEach(msg => {
-                appendMessage(msg.role.toLowerCase() === 'assistant' ? 'ai' : 'user', msg.content);
-            });
-
-            // Set manual title input if session has a title
-            const chatTitleInput = document.getElementById('chat-title-input');
-            if (chatTitleInput) {
-                chatTitleInput.value = data.title || '';
-                chatTitleInput.disabled = true; // Disable editing for loaded sessions
-            }
-
-            // Update active state in UI
-            document.querySelectorAll('.history-item').forEach(item => {
-                item.classList.toggle('active', item.innerText.trim() === data.title.trim());
-            });
-
-            await loadSessions(); // Refresh list to set active class properly
-        } catch (error) {
-            console.error('Error loading session:', error);
-        }
     }
 
     const clearHistoryBtn = document.getElementById('clear-history-btn');
     if (clearHistoryBtn) {
-        clearHistoryBtn.addEventListener('click', async () => {
-            if (confirm('Delete all chat history? This cannot be undone.')) {
-                try {
-                    await fetch('/clear_all', { method: 'POST' });
-                    currentSessionId = null;
-                    historyList.innerHTML = '';
-                    chatMessages.innerHTML = `
-                        <div class="welcome-message">
-                            <h1>${getRandomGreeting()}</h1>
-                        </div>
-                    `;
-                    if (clearHistoryBtn) clearHistoryBtn.classList.add('hidden');
-                } catch (error) {
-                    console.error('Error clearing history:', error);
-                }
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm('Delete all history?')) {
+                localStorage.removeItem('snail-gpt-sessions');
+                newChatBtn.click();
+                loadSessions();
             }
         });
     }
 
-    // Initial Load
-    loadSessions();
+    openSettingsBtn.addEventListener('click', () => {
+        mainView.classList.remove('active');
+        settingsView.classList.add('active');
+    });
 
-    // ================= SIDEBAR VIEW LOGIC =================
+    backBtn.addEventListener('click', () => {
+        settingsView.classList.remove('active');
+        mainView.classList.add('active');
+    });
 
-    if (openSettingsBtn && mainView && settingsView) {
-        openSettingsBtn.addEventListener('click', () => {
-            mainView.classList.remove('active');
-            settingsView.classList.add('active');
-        });
-    }
-
-    if (backBtn && mainView && settingsView) {
-        backBtn.addEventListener('click', () => {
-            settingsView.classList.remove('active');
-            mainView.classList.add('active');
-        });
-    }
-
-    // Auto-resize textarea
     userInput.addEventListener('input', function () {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
     });
 
-    // Initial Greeting Randomization
-    const welcomeH1 = document.querySelector('.welcome-message h1');
-    if (welcomeH1) {
-        welcomeH1.textContent = getRandomGreeting();
-    }
-
-    // ================= PLUS MENU LOGIC =================
     const plusBtn = document.getElementById('plus-btn');
     const plusMenu = document.getElementById('plus-menu');
     const navImageGen = document.getElementById('nav-image-gen');
@@ -469,22 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             plusMenu.classList.toggle('hidden');
         });
-
-        // Close when clicking outside
         document.addEventListener('click', (e) => {
-            if (!plusMenu.contains(e.target) && e.target !== plusBtn && !plusBtn.contains(e.target)) {
-                plusMenu.classList.add('hidden');
-            }
+            if (!plusMenu.contains(e.target) && e.target !== plusBtn) plusMenu.classList.add('hidden');
         });
-
-        // Navigation
-        if (navImageGen) {
-            navImageGen.addEventListener('click', () => {
-                // Navigate to Media Page
-                window.location.href = '/media';
-            });
-        }
+        navImageGen.addEventListener('click', () => window.location.href = 'media.html');
     }
+
+    loadSessions();
 });
-
-
