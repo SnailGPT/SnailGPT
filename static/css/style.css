@@ -153,18 +153,17 @@ body.theme-midnight {
 
 body.theme-crimson {
     --primary: #dc2626;
-    /* Crimson Base */
-    --secondary: #000000;
-    /* Pure Black */
+    /* Crimson */
+    --secondary: #f43f5e;
+    /* Soft Rose */
     --accent: #dc2626;
     --accent-rgb: 220, 38, 38;
-    /* Rich Gradient: Crimson -> Vibrant Ruby -> Dark Maroon -> Charcoal -> Black */
-    --primary-gradient: linear-gradient(135deg, #dc2626 0%, #b91c1c 25%, #7f1d1d 50%, #1a0505 75%, #000000 100%);
+    --primary-gradient: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%);
     --mesh-1: #450a0a;
-    --mesh-2: #000000;
-    --mesh-3: #1a0202;
-    --accent-glow: rgba(220, 38, 38, 0.5);
-    --accent-glow-soft: rgba(220, 38, 38, 0.25);
+    --mesh-2: #1e1b4b;
+    --mesh-3: #881337;
+    --accent-glow: rgba(220, 38, 38, 0.6);
+    --accent-glow-soft: rgba(220, 38, 38, 0.3);
 }
 
 body.theme-cyber {
@@ -236,18 +235,17 @@ body.theme-solarflare {
 /* Deep Sea = bioluminescent deep ocean — dark navy + vivid emerald, NOT teal */
 body.theme-deepsea {
     --primary: #1e40af;
-    /* Deep Blue Base */
-    --secondary: #000000;
-    /* Pure Black */
+    /* Deep Blue */
+    --secondary: #0d9488;
+    /* Dark Teal */
     --accent: #1e40af;
     --accent-rgb: 30, 64, 175;
-    /* Rich Gradient: Deep Blue -> Dark Cobalt -> Navy -> Midnight -> Black */
-    --primary-gradient: linear-gradient(135deg, #1e40af 0%, #1d4ed8 25%, #1e1b4b 50%, #020617 75%, #000000 100%);
+    --primary-gradient: linear-gradient(135deg, #1e40af 0%, #0d9488 100%);
     --mesh-1: #000d1a;
-    --mesh-2: #000000;
-    --mesh-3: #00050d;
-    --accent-glow: rgba(30, 64, 175, 0.5);
-    --accent-glow-soft: rgba(30, 64, 175, 0.2);
+    --mesh-2: #0f172a;
+    --mesh-3: #1e1b4b;
+    --accent-glow: rgba(30, 64, 175, 0.6);
+    --accent-glow-soft: rgba(30, 64, 175, 0.3);
 }
 
 /* ======================================================
