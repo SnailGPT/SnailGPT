@@ -358,10 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         const updated = await DB.updateUser(payload);
+                        // Update global state and persist
                         currentUser = updated;
-                        DB.setCurrentUser(currentUser);
-                        if (newPasswordInput) newPasswordInput.value = '';
-                        if (verifyInput) verifyInput.value = '';
+                        DB.setCurrentUser(updated);
+
+                        // Force refresh UI
+                        initApp();
 
                         // Navigate back to app
                         router.navigate('app');

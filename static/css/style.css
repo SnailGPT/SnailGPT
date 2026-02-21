@@ -152,16 +152,19 @@ body.theme-midnight {
 }
 
 body.theme-crimson {
-    --primary: #f43f5e;
-    --secondary: #fb923c;
-    --accent: #f43f5e;
-    --accent-rgb: 244, 63, 94;
-    --primary-gradient: linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
+    --primary: #dc2626;
+    /* Crimson Base */
+    --secondary: #000000;
+    /* Pure Black */
+    --accent: #dc2626;
+    --accent-rgb: 220, 38, 38;
+    /* Rich Gradient: Crimson -> Vibrant Ruby -> Dark Maroon -> Charcoal -> Black */
+    --primary-gradient: linear-gradient(135deg, #dc2626 0%, #b91c1c 25%, #7f1d1d 50%, #1a0505 75%, #000000 100%);
     --mesh-1: #450a0a;
-    --mesh-2: #1e1b4b;
-    --mesh-3: #881337;
-    --accent-glow: rgba(244, 63, 94, 0.6);
-    --accent-glow-soft: rgba(244, 63, 94, 0.3);
+    --mesh-2: #000000;
+    --mesh-3: #1a0202;
+    --accent-glow: rgba(220, 38, 38, 0.5);
+    --accent-glow-soft: rgba(220, 38, 38, 0.25);
 }
 
 body.theme-cyber {
@@ -232,16 +235,19 @@ body.theme-solarflare {
 
 /* Deep Sea = bioluminescent deep ocean — dark navy + vivid emerald, NOT teal */
 body.theme-deepsea {
-    --primary: #00e5b0;
-    --secondary: #003a7d;
-    --accent: #00e5b0;
-    --accent-rgb: 0, 229, 176;
-    --primary-gradient: linear-gradient(135deg, #00e5b0 0%, #006aff 100%);
+    --primary: #1e40af;
+    /* Deep Blue Base */
+    --secondary: #000000;
+    /* Pure Black */
+    --accent: #1e40af;
+    --accent-rgb: 30, 64, 175;
+    /* Rich Gradient: Deep Blue -> Dark Cobalt -> Navy -> Midnight -> Black */
+    --primary-gradient: linear-gradient(135deg, #1e40af 0%, #1d4ed8 25%, #1e1b4b 50%, #020617 75%, #000000 100%);
     --mesh-1: #000d1a;
-    --mesh-2: #00140f;
-    --mesh-3: #001433;
-    --accent-glow: rgba(0, 229, 176, 0.55);
-    --accent-glow-soft: rgba(0, 229, 176, 0.20);
+    --mesh-2: #000000;
+    --mesh-3: #00050d;
+    --accent-glow: rgba(30, 64, 175, 0.5);
+    --accent-glow-soft: rgba(30, 64, 175, 0.2);
 }
 
 /* ======================================================
@@ -407,7 +413,8 @@ body {
     color: var(--text-primary);
     font-family: var(--font-main);
     height: 100vh;
-    overflow: hidden;
+    overflow-y: auto;
+    /* Changed from hidden to allow scrolling if needed */
     display: flex;
     transition: background 1s ease;
 }
@@ -2642,7 +2649,8 @@ body::before {
             rgba(var(--accent-rgb, 99, 102, 241), 0.14) 0%,
             rgba(0, 0, 0, 0.0) 50%,
             rgba(0, 0, 0, 0.0) 100%),
-        rgba(8, 9, 15, 0.92) !important;
+        rgba(8, 9, 15, 0.92);
+    /* Removed !important to avoid color washing */
 }
 
 .auth-card,
@@ -2673,7 +2681,7 @@ body::before {
         linear-gradient(135deg,
             rgba(var(--accent-rgb, 99, 102, 241), 0.07) 0%,
             rgba(var(--accent-rgb, 99, 102, 241), 0.02) 100%),
-        rgba(10, 11, 18, 0.88) !important;
+        rgba(10, 11, 18, 0.88);
 }
 
 .chat-bubble.ai .message-wrap {

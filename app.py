@@ -184,23 +184,23 @@ def ai_answer_stream(message: str, mode: str = "normal"):
     elif hasattr(response, '__iter__'):
         try:
             in_thought_block = False
+            has_yielded = False
             for chunk in response:
                 if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                     content = getattr(chunk.choices[0].delta, 'content', '')
                     if content:
+                        has_yielded = True
                         full_content += content
                         
                         # Strip DeepSeek <think> blocks from the user visible stream
                         if "<think>" in content:
                             in_thought_block = True
                             continue
-                        if "</think>" in content:
-                            in_thought_block = False
-                            continue
-                        
                         if not in_thought_block:
                             yield content
-                            # REMOVED: Delays removed for Maximum Throughput (User Request)
+
+            if not has_yielded:
+                yield "⚠️ The AI server returned an empty response. This might be due to a token limitation or server load. Please try again."
         except Exception as e:
             yield f"\n⚠️ Stream Error: {str(e)}"
     chat_history.append({"role": "User", "content": message})
@@ -408,7 +408,7 @@ def api_register():
 
     db = get_db()
     if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-        return jsonify({'error': 'An account with this email already exists. Please login.'}), 409
+        return jsonify({'error': 'email already registered use a different one'}), 409
     if db.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
         return jsonify({'error': 'This display name is already taken. Please choose another.'}), 409
 
