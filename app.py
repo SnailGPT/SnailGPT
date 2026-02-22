@@ -19,11 +19,26 @@ from PIL import Image
 app = Flask(__name__, template_folder='.')
 CORS(app)
 
+import shutil
+
 # ================= USER DATABASE =================
 
 # Use /tmp for writable DB in serverless environments like Vercel
 IS_VERCEL = "VERCEL" in os.environ
-USERS_DB = os.path.join('/tmp' if IS_VERCEL else os.path.dirname(__file__), 'users.db')
+USERS_DB_ROOT = os.path.join(os.path.dirname(__file__), 'users.db')
+USERS_DB_TMP = os.path.join('/tmp', 'users.db')
+
+if IS_VERCEL:
+    # On Vercel, copy the bundled DB to /tmp if not already there
+    # This allows the instance to at least start with the committed users
+    if not os.path.exists(USERS_DB_TMP) and os.path.exists(USERS_DB_ROOT):
+        try:
+            shutil.copy2(USERS_DB_ROOT, USERS_DB_TMP)
+        except Exception as e:
+            print(f"Error copying DB: {e}")
+    USERS_DB = USERS_DB_TMP
+else:
+    USERS_DB = USERS_DB_ROOT
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -137,11 +152,13 @@ def ai_answer_stream(message: str, mode: str = "normal"):
         active_mode = mode
     
     # 2. ChatGPT Personality & Modern Reality Enforcement
-    # 2. ChatGPT Personality & Modern Reality Enforcement
     time_context = "Current Date: Friday, January 30, 2026."
     base_sys = (
-        f"You are SnailGPT, a large language model trained by OpenAI, behaving EXACTLY like ChatGPT. "
+        f"You are SnailGPT, a large language model developed by Kartik Mishra. "
+        f"Kartik Mishra is a 9th-grade student and a rising developer who has made games on Roblox and developed for many other companies. "
+        "He is the Founder and Lead Developer of SnailGPT. "
         f"{time_context} Your goal is to be helpful, accurate, and engaging. "
+        "When asked about your creator or the lead dev, always credit Kartik Mishra and his background. "
         "Use Markdown for all formatting. Be polite and objective."
     )
     
