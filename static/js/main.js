@@ -3,6 +3,30 @@ import ParticleNetwork from './particles.js';
 import DB from './db.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Global Ripple Effect ---
+    document.addEventListener('mousedown', (e) => {
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple';
+        document.body.appendChild(ripple);
+
+        const size = Math.max(window.innerWidth, window.innerHeight) * 0.15;
+        ripple.style.width = ripple.style.height = `${size}px`;
+        ripple.style.left = `${e.clientX - size / 2}px`;
+        ripple.style.top = `${e.clientY - size / 2}px`;
+
+        ripple.addEventListener('animationend', () => ripple.remove());
+    });
+
+    // --- Dynamic Background Parallax ---
+    const mesh = document.getElementById('background-mesh');
+    if (mesh) {
+        document.addEventListener('mousemove', (e) => {
+            const x = (e.clientX / window.innerWidth - 0.5) * 20;
+            const y = (e.clientY / window.innerHeight - 0.5) * 20;
+            mesh.style.transform = `translate(${x}px, ${y}px) scale(1.1)`;
+        });
+    }
+
     // --- Elements ---
     const pages = {
         home: document.getElementById('home-page'),
