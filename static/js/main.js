@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ripple.className = 'ripple';
         document.body.appendChild(ripple);
 
-        const size = Math.max(window.innerWidth, window.innerHeight) * 0.15;
+        const size = 60; // Fixed small size for more precision
         ripple.style.width = ripple.style.height = `${size}px`;
         ripple.style.left = `${e.clientX - size / 2}px`;
         ripple.style.top = `${e.clientY - size / 2}px`;
