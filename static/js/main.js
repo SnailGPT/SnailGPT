@@ -230,6 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadSessions();
+
+        // Restore last session if exists
+        const lastSessionId = localStorage.getItem('last_session_id');
+        if (lastSessionId && !currentSessionId) {
+            loadSession(lastSessionId);
+        }
     }
 
     const profileTrigger = document.getElementById('user-profile-trigger');
@@ -428,6 +434,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (popupSignoutBtn) popupSignoutBtn.onclick = () => {
         DB.logout();
         currentUser = null;
+        currentSessionId = null;
+        localStorage.removeItem('last_session_id');
         if (profilePopup) profilePopup.classList.add('hidden');
         router.navigate('home');
     };
@@ -444,6 +452,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLogout) btnLogout.onclick = () => {
         DB.logout();
         currentUser = null;
+        currentSessionId = null;
+        localStorage.removeItem('last_session_id');
         router.navigate('home');
     };
 
@@ -455,6 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm('Delete all chat history? This cannot be undone.')) return;
             await DB.clearConversations(currentUser.email);
             currentSessionId = null;
+            localStorage.removeItem('last_session_id');
             chatHistory = [];
             if (chatMessages) chatMessages.innerHTML = '';
             chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
@@ -470,6 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!currentSessionId) {
             currentSessionId = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('last_session_id', currentSessionId);
         }
 
         appendMessage('user', message);
@@ -597,6 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = await DB.getConversation(id);
         if (s) {
             currentSessionId = id;
+            localStorage.setItem('last_session_id', id);
             chatHistory = s.history;
             chatMessages.innerHTML = '';
             chatHistory.forEach(m => appendMessage(m.role === 'assistant' || m.role === 'ai' ? 'ai' : 'user', m.content));
@@ -733,6 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnNewChat) {
         btnNewChat.onclick = () => {
             currentSessionId = null;
+            localStorage.removeItem('last_session_id');
             chatHistory = [];
             if (chatMessages) chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
             loadSessions();

@@ -113,16 +113,19 @@ def get_client():
 # ================= CORE BRAIN =================
 
 def generate_response(messages, stream=False, mode="normal"):
-    # Adjusted for <10s response time on local hardware
-    max_tokens = 400 # Optimized for shorter, faster replies
+    # Increased token limits to prevent cut-offs while maintaining speed
+    max_tokens = 1536 
     temp = 0.7
     
     if mode == "extreme":
-        max_tokens = 200
+        max_tokens = 512
         temp = 0.5
     elif mode == "high":
-        max_tokens = 600 # Reduced for brevity 
-    
+        max_tokens = 3584 # Higher limit for comprehensive research answers
+    elif mode == "greeting":
+        max_tokens = 50
+    elif mode == "title":
+        max_tokens = 30    
     try:
         c = get_client()
         completion = c.chat.completions.create(
@@ -181,7 +184,7 @@ def ai_answer_stream(message: str, history: list, mode: str = "normal"):
         )
 
     # 3. Build Messages
-    history_limit = 2 if active_mode == "extreme" else 6
+    history_limit = 4 if active_mode == "extreme" else 10
     messages = [{"role": "system", "content": sys_content}]
     
     for msg in history[-history_limit:]:
@@ -239,7 +242,7 @@ def generate_title(history):
             {"role": "system", "content": "You are a summarizing tool. Output ONLY a 3-5 word topic title for the conversation context provided. Do not use quotes or prefixes like 'Title:'."},
             {"role": "user", "content": f"Context for title generation:\n{context_msg}"}
         ]
-        resp = generate_response(msgs, stream=False, mode="extreme")
+        resp = generate_response(msgs, stream=False, mode="title")
         
         if hasattr(resp, 'choices') and len(resp.choices) > 0:
             return resp.choices[0].message.content.strip().replace('"', '')
