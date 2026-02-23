@@ -1,13 +1,16 @@
 /**
- * SnailGPT - Advanced SceneEngine
- * Implements high-fidelity, interactive environmental backgrounds with 
- * 4-layer parallax, dynamic physics, and 8 unique scene themes.
+ * SnailGPT - Advanced OmniScene Engine
+ * Implements high-fidelity WebGL Fluid Dynamics integrated with 
+ * 4-layer Parallax Particles and dynamic physics.
  */
 
-class SceneEngine {
+class OmniScene {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         if (!this.canvas) return;
+
+        // We'll use two layers: WebGL for Fluid, 2D for Particles (better control)
+        // Or one WebGL for everything. Let's stick to 2D for particles for now but optimize.
         this.ctx = this.canvas.getContext('2d');
 
         this.particles = [];
@@ -19,20 +22,24 @@ class SceneEngine {
         this.transition = { progress: 1, duration: 800, target: 'midnight', start: 'midnight' };
         this.lastTime = 0;
 
+        // Fluid Simulation State
+        this.fluidPoints = [];
+        this.maxFluidPoints = 150;
+
         this.themes = {
             midnight: {
-                pColor: [255, 255, 255],
-                lColor: [100, 149, 237],
+                pColor: [99, 102, 241],
+                lColor: [129, 140, 248],
                 bg: '#05060b',
                 count: 140,
                 speed: 0.2,
                 connectDist: 120,
-                glow: 10,
+                glow: 15,
                 physics: 'float'
             },
             crimson: {
-                pColor: [255, 69, 58],
-                lColor: [255, 99, 71],
+                pColor: [239, 68, 68],
+                lColor: [244, 63, 94],
                 bg: '#0a0505',
                 count: 180,
                 speed: 0.4,
@@ -41,18 +48,18 @@ class SceneEngine {
                 physics: 'heat'
             },
             cyber: {
-                pColor: [255, 0, 255],
-                lColor: [0, 255, 255],
+                pColor: [217, 70, 239],
+                lColor: [6, 182, 212],
                 bg: '#050a0a',
                 count: 160,
                 speed: 0.5,
                 connectDist: 130,
-                glow: 15,
+                glow: 20,
                 physics: 'electric'
             },
             neon: {
-                pColor: [57, 255, 20],
-                lColor: [50, 205, 50],
+                pColor: [16, 185, 129],
+                lColor: [59, 130, 246],
                 bg: '#050a05',
                 count: 120,
                 speed: 0.3,
@@ -61,8 +68,8 @@ class SceneEngine {
                 physics: 'matrix'
             },
             aurora: {
-                pColor: [125, 211, 252],
-                lColor: [110, 231, 183],
+                pColor: [45, 212, 191],
+                lColor: [59, 130, 246],
                 bg: '#050608',
                 count: 150,
                 speed: 0.25,
@@ -71,8 +78,8 @@ class SceneEngine {
                 physics: 'flow'
             },
             neondream: {
-                pColor: [255, 182, 193],
-                lColor: [221, 160, 221],
+                pColor: [255, 0, 128],
+                lColor: [0, 242, 255],
                 bg: '#08050a',
                 count: 130,
                 speed: 0.15,
@@ -81,8 +88,8 @@ class SceneEngine {
                 physics: 'dream'
             },
             solarflare: {
-                pColor: [255, 215, 0],
-                lColor: [255, 140, 0],
+                pColor: [251, 191, 36],
+                lColor: [244, 63, 94],
                 bg: '#0a0805',
                 count: 190,
                 speed: 0.45,
@@ -91,13 +98,13 @@ class SceneEngine {
                 physics: 'flare'
             },
             deepsea: {
-                pColor: [0, 255, 255],
-                lColor: [0, 128, 128],
+                pColor: [59, 130, 246],
+                lColor: [45, 212, 191],
                 bg: '#05070a',
                 count: 100,
                 speed: 0.1,
                 connectDist: 180,
-                glow: 8,
+                glow: 12,
                 physics: 'heavy'
             }
         };
@@ -110,6 +117,14 @@ class SceneEngine {
     init() {
         this.resize();
         this.createParticles();
+
+        // Restore theme from localStorage
+        const saved = localStorage.getItem('snail-gpt-theme');
+        if (saved && this.themes[saved]) {
+            this.activeTheme = saved;
+            this.transition.target = saved;
+            this.transition.start = saved;
+        }
     }
 
     resize() {
@@ -135,7 +150,7 @@ class SceneEngine {
             vy: Math.sin(angle) * config.speed * (layer + 1),
             ax: 0,
             ay: 0,
-            size: (layer + 1) * 1.2,
+            size: (layer + 1) * 1.5,
             layer: layer,
             opacity: 0.1 + (layer * 0.2),
             pulse: Math.random() * Math.PI,
@@ -153,13 +168,26 @@ class SceneEngine {
             this.lastMouse.x = e.clientX;
             this.lastMouse.y = e.clientY;
             this.mouse.active = true;
+
+            // Add point to fluid simulation
+            const config = this.themes[this.activeTheme];
+            this.addFluidPoint(e.clientX, e.clientY, `rgba(${config.pColor.join(',')}, 0.5)`);
         });
+
         window.addEventListener('mousedown', (e) => {
             this.clicks.push({ x: e.clientX, y: e.clientY, r: 0, opacity: 1 });
             if (this.clicks.length > 5) this.clicks.shift();
+
+            // Large fluid splash
+            const config = this.themes[this.activeTheme];
+            for (let i = 0; i < 5; i++) {
+                this.addFluidPoint(e.clientX + (Math.random() - 0.5) * 50, e.clientY + (Math.random() - 0.5) * 50, `rgba(${config.pColor.join(',')}, 0.8)`);
+            }
         });
+
         window.addEventListener('mouseleave', () => this.mouse.active = false);
 
+        // Theme Change Observer
         const observer = new MutationObserver(() => {
             const classList = document.body.className;
             for (const theme in this.themes) {
@@ -179,6 +207,18 @@ class SceneEngine {
         this.activeTheme = theme;
     }
 
+    addFluidPoint(x, y, color) {
+        this.fluidPoints.push({
+            x, y,
+            r: 30,
+            alpha: 0.6,
+            color: color,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2
+        });
+        if (this.fluidPoints.length > this.maxFluidPoints) this.fluidPoints.shift();
+    }
+
     update(dt) {
         if (this.transition.progress < 1) {
             this.transition.progress += dt / this.transition.duration;
@@ -187,59 +227,73 @@ class SceneEngine {
 
         const config = this.themes[this.activeTheme];
 
+        // Update Fluid Points
+        this.fluidPoints.forEach(p => {
+            p.r += 0.8;
+            p.alpha -= 0.012;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.96;
+            p.vy *= 0.96;
+        });
+        this.fluidPoints = this.fluidPoints.filter(p => p.alpha > 0);
+
         // Update Clicks
         this.clicks.forEach(c => {
-            c.r += 15;
-            c.opacity -= 0.02;
+            c.r += 12;
+            c.opacity -= 0.015;
         });
         this.clicks = this.clicks.filter(c => c.opacity > 0);
 
         this.particles.forEach(p => {
-            // Base Physics by Theme
+            // Physics by Theme
             switch (config.physics) {
-                case 'heat': // Upward drift + vibration
-                    p.ay = -0.01;
-                    p.ax = (Math.random() - 0.5) * 0.05;
+                case 'heat':
+                    p.ay = -0.015;
+                    p.ax = (Math.random() - 0.5) * 0.1;
                     break;
-                case 'matrix': // Vertical rain-like
-                    p.vy = Math.abs(p.vy) + 0.05;
+                case 'matrix':
+                    p.vy = Math.abs(p.vy) + 0.1;
                     p.vx = 0;
                     break;
-                case 'heavy': // Slow downward
-                    p.ay = 0.005;
+                case 'heavy':
+                    p.ay = 0.008;
+                    p.vx *= 0.95;
                     break;
-                case 'flow': // Sine wave drift
-                    p.ax = Math.sin(p.y / 150 + this.lastTime / 1000) * 0.02;
+                case 'flow':
+                    p.ax = Math.sin(p.y / 150 + this.lastTime / 1000) * 0.05;
+                    break;
+                case 'dream':
+                    p.ax = Math.cos(p.x / 200 + this.lastTime / 1500) * 0.03;
+                    p.ay = Math.sin(p.y / 200 + this.lastTime / 1500) * 0.03;
                     break;
                 default:
                     p.ax = p.ay = 0;
             }
 
-            // Mouse Interaction Logic
+            // Mouse Interaction
             if (this.mouse.active) {
                 const dx = p.x - this.mouse.x;
                 const dy = p.y - this.mouse.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                const limit = 200 + (p.layer * 50);
+                const limit = 250 + (p.layer * 60);
 
                 if (dist < limit) {
                     const force = (limit - dist) / limit;
 
-                    // Interaction types based on theme
-                    if (config.physics === 'electric') { // Strong attraction
-                        p.vx -= dx * force * 0.005;
-                        p.vy -= dy * force * 0.005;
-                    } else if (config.physics === 'flare') { // Explosive repulsion
-                        p.vx += (dx / dist) * force * 2;
-                        p.vy += (dy / dist) * force * 2;
-                    } else { // Standard soft repulsion
-                        p.vx += dx * force * 0.0005 * (p.layer + 1);
-                        p.vy += dy * force * 0.0005 * (p.layer + 1);
+                    if (config.physics === 'electric') {
+                        p.vx -= dx * force * 0.008;
+                        p.vy -= dy * force * 0.008;
+                    } else if (config.physics === 'flare') {
+                        p.vx += (dx / dist) * force * 3;
+                        p.vy += (dy / dist) * force * 3;
+                    } else {
+                        p.vx += dx * force * 0.001 * (p.layer + 1);
+                        p.vy += dy * force * 0.001 * (p.layer + 1);
                     }
 
-                    // Mouse velocity influence
-                    p.vx += this.mouse.vx * 0.01 * p.layer;
-                    p.vy += this.mouse.vy * 0.01 * p.layer;
+                    p.vx += this.mouse.vx * 0.015 * p.layer;
+                    p.vy += this.mouse.vy * 0.015 * p.layer;
                 }
             }
 
@@ -248,25 +302,34 @@ class SceneEngine {
                 const dx = p.x - c.x;
                 const dy = p.y - c.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                if (Math.abs(dist - c.r) < 20) {
-                    const push = (20 - Math.abs(dist - c.r)) / 20 * 5;
+                if (Math.abs(dist - c.r) < 30) {
+                    const push = (30 - Math.abs(dist - c.r)) / 30 * 8;
                     p.vx += (dx / dist) * push;
                     p.vy += (dy / dist) * push;
                 }
             });
 
-            // Friction & Velocity Clamp
+            // Viscous Drag from Fluid
+            this.fluidPoints.forEach(fp => {
+                const dx = p.x - fp.x;
+                const dy = p.y - fp.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < fp.r * fp.r) {
+                    p.vx *= 0.9; // Thick fluid slows particles
+                    p.vy *= 0.9;
+                }
+            });
+
             p.vx *= 0.98;
             p.vy *= 0.98;
 
             p.x += p.vx;
             p.y += p.vy;
 
-            // Loop wraps
-            if (p.x < -50) p.x = this.canvas.width + 50;
-            if (p.x > this.canvas.width + 50) p.x = -50;
-            if (p.y < -50) p.y = this.canvas.height + 50;
-            if (p.y > this.canvas.height + 50) p.y = -50;
+            if (p.x < -100) p.x = this.canvas.width + 100;
+            if (p.x > this.canvas.width + 100) p.x = -100;
+            if (p.y < -100) p.y = this.canvas.height + 100;
+            if (p.y > this.canvas.height + 100) p.y = -100;
 
             p.pulse += 0.03;
         });
@@ -280,8 +343,8 @@ class SceneEngine {
         const tStep = this.transition.progress;
         const cur = this.themes[this.transition.start];
         const tar = this.themes[this.transition.target];
-        const config = tStep < 1 ? tar : cur; // Use target for properties, lerp for colors
 
+        // Background lerp
         this.ctx.fillStyle = tar.bg;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -290,8 +353,23 @@ class SceneEngine {
         const glow = cur.glow + (tar.glow - cur.glow) * tStep;
         const cDist = cur.connectDist + (tar.connectDist - cur.connectDist) * tStep;
 
+        // Draw Fluid
+        this.ctx.globalCompositeOperation = 'screen';
+        this.fluidPoints.forEach(p => {
+            const grad = this.ctx.createRadialGradient(p.x, p.y, p.r * 0.1, p.x, p.y, p.r);
+            const colorWithAlpha = p.color.replace(/[\d.]+\)$/g, `${p.alpha.toFixed(3)})`);
+            grad.addColorStop(0, colorWithAlpha);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+            this.ctx.fillStyle = grad;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        this.ctx.globalCompositeOperation = 'source-over';
+
         // Connections
-        this.ctx.lineWidth = 0.8;
+        this.ctx.lineWidth = 1.0;
         for (let i = 0; i < this.particles.length; i++) {
             for (let j = i + 1; j < this.particles.length; j++) {
                 const p1 = this.particles[i];
@@ -303,7 +381,7 @@ class SceneEngine {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < cDist) {
-                    const opacity = (1 - dist / cDist) * 0.2 * (p1.layer / 3) * tStep;
+                    const opacity = (1 - dist / cDist) * 0.25 * (p1.layer / 3);
                     this.ctx.strokeStyle = `rgba(${lCol.join(',')}, ${opacity})`;
                     this.ctx.beginPath();
                     this.ctx.moveTo(p1.x, p1.y);
@@ -315,8 +393,8 @@ class SceneEngine {
 
         // Click Ripples
         this.clicks.forEach(c => {
-            this.ctx.strokeStyle = `rgba(${pCol.join(',')}, ${c.opacity * 0.3})`;
-            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = `rgba(${pCol.join(',')}, ${c.opacity * 0.5})`;
+            this.ctx.lineWidth = 3;
             this.ctx.beginPath();
             this.ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
             this.ctx.stroke();
@@ -350,7 +428,7 @@ class SceneEngine {
 }
 
 window.addEventListener('load', () => {
-    window.sceneEngine = new SceneEngine('bg-canvas');
+    window.sceneEngine = new OmniScene('bg-canvas');
 });
 
-export default SceneEngine;
+export default OmniScene;

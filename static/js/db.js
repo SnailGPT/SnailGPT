@@ -137,6 +137,21 @@ const DB = {
         const allConvos = JSON.parse(localStorage.getItem('snail_convos')) || {};
         delete allConvos[userId];
         localStorage.setItem('snail_convos', JSON.stringify(allConvos));
+    },
+
+    // ---- Remote Sessions (Server-side) ----
+    getRemoteSessions: async () => {
+        return await DB.request('/sessions', { method: 'GET' });
+    },
+
+    getRemoteSession: async (id) => {
+        return await DB.request(`/session/${id}`, { method: 'GET' });
+    },
+
+    saveRemoteSession: async (history, title, sessionId) => {
+        // The backend handles saving automatically after the /chat stream
+        // but we might want a manual save or title update.
+        // For now, /chat handles the creation.
     }
 };
 

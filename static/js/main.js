@@ -272,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Load sessions from server
         loadSessions();
     }
 
@@ -534,7 +535,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const response = await fetch(`/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...DB.getAuthHeader()
+                },
                 body: JSON.stringify(payload),
                 signal: currentAbortController.signal
             });
@@ -606,50 +610,87 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSession() {
+        // Local saving is still useful for immediate UI updates
         if (!chatHistory.length) return;
         if (!currentUser) return;
 
         if (!currentSessionId) {
-            currentSessionId = Date.now().toString();
+            // After first message, the ID might still be null until server returns it
+            // but the /chat route now handles saving.
+            // We'll refresh the list soon.
         }
 
         const convo = {
-            id: currentSessionId,
+            id: currentSessionId || 'pending',
             title: chatHistory[0].content.substring(0, 30),
             history: chatHistory,
             timestamp: Date.now()
         };
 
         DB.saveConversation(currentUser.email, convo);
-        loadSessions();
+        loadSessions(); // Re-fetch to sync
     }
 
-    function loadSessions() {
+    async function loadSessions() {
         if (!historyList || !currentUser) return;
-        const sessions = DB.getConversations(currentUser.email);
-        historyList.innerHTML = '';
-        // Show or hide Clear History button
-        const clearBtn = document.getElementById('clear-history-btn');
-        if (clearBtn) clearBtn.classList.toggle('hidden', sessions.length === 0);
-        sessions.sort((a, b) => b.timestamp - a.timestamp).forEach(s => {
-            const item = document.createElement('div');
-            item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
-            item.onclick = () => loadSession(s.id);
-            historyList.appendChild(item);
-        });
+
+        try {
+            // Get combined sessions (Remote + Local)
+            const remoteSessions = await DB.getRemoteSessions();
+            const localSessions = DB.getConversations(currentUser.email);
+
+            // Deduplicate and merge
+            const combined = [...remoteSessions];
+            localSessions.forEach(ls => {
+                if (!combined.find(rs => rs.id === ls.id)) {
+                    combined.push({
+                        id: ls.id,
+                        title: ls.title,
+                        updated_at: ls.timestamp / 1000
+                    });
+                }
+            });
+
+            historyList.innerHTML = '';
+            const clearBtn = document.getElementById('clear-history-btn');
+            if (clearBtn) clearBtn.classList.toggle('hidden', combined.length === 0);
+
+            combined.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0)).forEach(s => {
+                const item = document.createElement('div');
+                item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
+                item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
+                item.onclick = () => loadSession(s.id);
+                historyList.appendChild(item);
+            });
+        } catch (err) {
+            console.error("Failed to load sessions:", err);
+        }
     }
 
-    function loadSession(id) {
+    async function loadSession(id) {
         if (!currentUser) return;
-        const sessions = DB.getConversations(currentUser.email);
-        const s = sessions.find(x => x.id === id);
-        if (s) {
-            currentSessionId = id;
-            chatHistory = s.history;
-            chatMessages.innerHTML = '';
-            chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
-            loadSessions();
+
+        try {
+            const s = await DB.getRemoteSession(id);
+            if (s) {
+                currentSessionId = id;
+                chatHistory = s.history;
+                chatMessages.innerHTML = '';
+                chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
+                loadSessions();
+                return;
+            }
+        } catch (e) {
+            // Fallback to local
+            const sessions = DB.getConversations(currentUser.email);
+            const ls = sessions.find(x => x.id === id);
+            if (ls) {
+                currentSessionId = id;
+                chatHistory = ls.history;
+                chatMessages.innerHTML = '';
+                chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
+                loadSessions();
+            }
         }
     }
 

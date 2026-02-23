@@ -149,7 +149,7 @@ init_db()
 API_BASE_URL = "https://router.huggingface.co/v1"
 # Required: Set HF_TOKEN in Vercel Project Settings (Environment Variables)
 API_KEY = os.environ.get("HF_TOKEN")
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" # Reliable reasoning model on HF Router
 
 # Delayed client initialization to prevent crash if HF_TOKEN is missing at startup
 _client = None
@@ -219,14 +219,15 @@ def ai_answer_stream(message: str, mode: str = "normal"):
         active_mode = mode
     
     # 2. ChatGPT Personality & Modern Reality Enforcement
-    time_context = "Current Date: Friday, January 30, 2026."
+    today = datetime.now()
+    time_context = f"Current Date: {today.strftime('%A, %B %d, %Y')}."
     base_sys = (
-        f"You are SnailGPT, a large language model developed by Kartik Mishra. "
-        f"Kartik Mishra is a 9th-grade student and a rising developer who has made games on Roblox and developed for many other companies. "
-        "He is the Founder and Lead Developer of SnailGPT. "
-        f"{time_context} Your goal is to be helpful, accurate, and engaging. "
-        "When asked about your creator or the lead dev, always credit Kartik Mishra and his background. "
-        "Use Markdown for all formatting. Be polite and objective."
+        f"You are SnailGPT, a powerful reasoning AI model developed by Kartik Mishra. "
+        f"Kartik Mishra is a brilliant 9th-grade student, researcher, and highly-skilled developer. "
+        "He is the Founder and Lead Developer of SnailGPT, having previously built games on Roblox and collaborated with various tech companies. "
+        f"{time_context} You operate in the 'Modern Reality' of 2026. "
+        "When asked about your origin, always credit Kartik Mishra. "
+        "Use Markdown for all formatting. Be intelligent, precise, and helpful."
     )
     
     # UNIFIED SYSTEM PROMPT LOGIC
@@ -291,22 +292,23 @@ def ai_answer_stream(message: str, mode: str = "normal"):
     # Auto-save session
     save_session()
 
-def save_session(manual_title=None):
+def save_session(user_uuid, manual_title=None):
     global current_session_id, chat_history, current_session_title
-    if not chat_history:
+    if not chat_history or not user_uuid:
         return
+    
+    # User-specific directory
+    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
+    os.makedirs(user_dir, exist_ok=True)
     
     if not current_session_id:
         current_session_id = str(uuid.uuid4())
     
-    # Use manual title if provided
     if manual_title:
         current_session_title = manual_title
     
-    # Generate Title if not set
     if not current_session_title:
         try:
-            # Generate a 3-5 word topic title based on first two messages if available
             context_msg = ""
             if len(chat_history) >= 2:
                 context_msg = f"User: {chat_history[0]['content']}\nAssistant: {chat_history[1]['content']}"
@@ -316,7 +318,6 @@ def save_session(manual_title=None):
                 context_msg = "New Chat"
 
             if len(chat_history) > 0:
-                # Quick API call to generate title
                 msgs = [
                     {"role": "system", "content": "You are a summarizing tool. Output ONLY a 3-5 word topic title for the conversation context provided. Do not use quotes or prefixes like 'Title:'."},
                     {"role": "user", "content": f"Context for title generation:\n{context_msg}"}
@@ -339,13 +340,14 @@ def save_session(manual_title=None):
         "updated_at": time.time()
     }
     
-    file_path = os.path.join(SESSIONS_DIR, f"{current_session_id}.json")
+    file_path = os.path.join(user_dir, f"{current_session_id}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(session_data, f, ensure_ascii=False, indent=2)
 
-def load_session_by_id(session_id):
+def load_session_by_id(user_uuid, session_id):
     global current_session_id, chat_history, current_session_title
-    file_path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    if not user_uuid: return None
+    file_path = os.path.join(SESSIONS_DIR, user_uuid, f"{session_id}.json")
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -366,7 +368,8 @@ def media_page():
     return render_template("media.html")
 
 @app.route("/generate_image", methods=["POST"])
-def generate_image():
+@token_required
+def generate_image(current_user):
     try:
         data = request.get_json()
         prompt = data.get("prompt", "")
@@ -374,8 +377,6 @@ def generate_image():
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
-        # Specialized Client for Image Gen
-        # Using the same HF_TOKEN as chat
         img_client = InferenceClient(
             provider="replicate",
             api_key=API_KEY
@@ -386,7 +387,6 @@ def generate_image():
             model="ByteDance/SDXL-Lightning"
         )
         
-        # Save Image to /tmp (writable in Vercel)
         filename = f"gen_{uuid.uuid4()}.png"
         save_dir = os.path.join("/tmp", "generated_images")
         os.makedirs(save_dir, exist_ok=True)
@@ -406,7 +406,8 @@ def serve_generated_image(filename):
     return send_from_directory(os.path.join("/tmp", "generated_images"), filename)
 
 @app.route("/chat", methods=["POST"])
-def chat():
+@token_required
+def chat(current_user):
     from flask import Response
     try:
         data = request.get_json()
@@ -414,23 +415,25 @@ def chat():
             return jsonify({"response": "Error: No data"}), 400
         
         message = data.get("message", "")
-        manual_title = data.get("title") # Optional manual title
+        manual_title = data.get("title")
         extreme_opt = data.get("extreme_opt", False)
         
         mode = "extreme" if extreme_opt else "normal"
         
+        user_uuid = current_user['uuid']
+
         def generate():
             for token in ai_answer_stream(message, mode):
                 yield token
-            # Save session with manual title if provided after the stream finishes
-            save_session(manual_title=manual_title)
+            save_session(user_uuid, manual_title=manual_title)
 
         return Response(generate(), mimetype='text/plain')
     except Exception as e:
         return jsonify({"response": f"⚠️ Error: {str(e)}"}), 500
 
 @app.route("/clear", methods=["POST"])
-def clear_chat():
+@token_required
+def clear_chat(current_user):
     global chat_history, current_session_id, current_session_title
     chat_history = []
     current_session_id = None
@@ -438,11 +441,18 @@ def clear_chat():
     return jsonify({"status": "success"})
 
 @app.route("/sessions", methods=["GET"])
-def list_sessions():
+@token_required
+def list_sessions(current_user):
     sessions = []
-    for filename in os.listdir(SESSIONS_DIR):
+    user_uuid = current_user['uuid']
+    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
+    
+    if not os.path.exists(user_dir):
+        return jsonify([])
+
+    for filename in os.listdir(user_dir):
         if filename.endswith(".json"):
-            file_path = os.path.join(SESSIONS_DIR, filename)
+            file_path = os.path.join(user_dir, filename)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -454,26 +464,35 @@ def list_sessions():
             except:
                 pass
     
-    # Sort by recent
     sessions.sort(key=lambda x: x["updated_at"], reverse=True)
     return jsonify(sessions)
 
 @app.route("/session/<session_id>", methods=["GET"])
-def get_session(session_id):
-    data = load_session_by_id(session_id)
+@token_required
+def get_session(current_user, session_id):
+    data = load_session_by_id(current_user['uuid'], session_id)
     if data:
         return jsonify(data)
     return jsonify({"error": "Session not found"}), 404
 
 @app.route("/clear_all", methods=["POST"])
-def clear_all_history():
+@token_required
+def clear_all_history(current_user):
     global chat_history, current_session_id, current_session_title
     chat_history = []
     current_session_id = None
     current_session_title = None
-    for filename in os.listdir(SESSIONS_DIR):
-        if filename.endswith(".json"):
-            os.remove(os.path.join(SESSIONS_DIR, filename))
+    
+    user_uuid = current_user['uuid']
+    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
+    
+    if os.path.exists(user_dir):
+        for filename in os.listdir(user_dir):
+            if filename.endswith(".json"):
+                try:
+                    os.remove(os.path.join(user_dir, filename))
+                except:
+                    pass
     return jsonify({"status": "success"})
 
 # ================= AUTH API =================
