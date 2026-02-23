@@ -203,16 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Handle Header Avatar (Top Left next to Logo)
-        const headerAvatar = document.getElementById('header-user-avatar');
-        if (headerAvatar) {
-            if (currentUser.avatarUrl) {
-                headerAvatar.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:32px; height:32px; border-radius:8px; object-fit:cover;">`;
-                headerAvatar.style.display = 'block';
-            } else {
-                headerAvatar.style.display = 'none';
-            }
-        }
+
 
         // Handle Popup Avatar
         const popupInitialEl = document.getElementById('popup-user-initial');
