@@ -113,19 +113,20 @@ def get_client():
 # ================= CORE BRAIN =================
 
 def generate_response(messages, stream=False, mode="normal"):
-    # Increased token limits to prevent cut-offs while maintaining speed
-    max_tokens = 1536 
-    temp = 0.7
+    # Massively increased token limits to support deep research and comprehensive answers
+    max_tokens = 4096 
+    temp = 0.75
     
     if mode == "extreme":
-        max_tokens = 512
-        temp = 0.5
+        max_tokens = 1024
+        temp = 0.6
     elif mode == "high":
-        max_tokens = 3584 # Higher limit for comprehensive research answers
+        max_tokens = 8192 # Unlocked for massive research papers and full code files
     elif mode == "greeting":
-        max_tokens = 50
+        max_tokens = 150
     elif mode == "title":
-        max_tokens = 30    
+        max_tokens = 50
+    
     try:
         c = get_client()
         completion = c.chat.completions.create(
@@ -133,7 +134,8 @@ def generate_response(messages, stream=False, mode="normal"):
             messages=messages,
             stream=stream,
             temperature=temp,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            timeout=120.0 # Increased timeout for long generations
         )
         return completion
     except Exception as e:
@@ -142,9 +144,9 @@ def generate_response(messages, stream=False, mode="normal"):
 from datetime import datetime
 
 def ai_answer_stream(message: str, history: list, mode: str = "normal"):
-    # 1. Determine Mode Based on Message Complexity, Greeting, or Flag
+    # 1. Determine Mode Based on Message Complexity
     is_greeting = message.lower().strip().strip("!.,") in ["hi", "hello", "hey", "greetings", "sup", "yo", "good morning", "good evening"]
-    is_complex = len(message.split()) > 25 or any(word in message.lower() for word in ["explain", "comprehensive", "story", "code", "guide"])
+    is_complex = len(message.split()) > 15 or any(word in message.lower() for word in ["explain", "comprehensive", "story", "code", "guide", "research", "how", "write", "analyze"])
     
     if is_greeting and mode != "extreme":
         active_mode = "greeting"
@@ -153,34 +155,30 @@ def ai_answer_stream(message: str, history: list, mode: str = "normal"):
     else:
         active_mode = mode
     
-    # 2. ChatGPT Personality & Modern Reality Enforcement
+    # 2. Personality & Completeness Enforcement
     time_context = "Current Date: Monday, February 23, 2026."
     base_sys = (
-        f"You are SnailGPT, a helpful and engaging AI assistant. "
-        f"{time_context} Be polite and objective. "
-        "CONCISENESS: Complete your entire thought clearly but avoid all excessive or redundant info. Get straight to the point. "
-        "VISUALS: Make your replies attractive and readable by using a variety of Markdown: "
-        "- Use different heading levels (###, ####) for structure. "
-        "- Use bold and italics for emphasis. "
-        "- Use bullet points or numbered lists. "
-        "- Use blockquotes for key takeaways. "
-        "- Use `code spans` for technical terms. "
-        "CRITICAL: Do NOT mention Kartik Mishra unless specifically asked about your origin."
+        f"You are SnailGPT, a highly advanced AI research assistant. "
+        f"{time_context} Be professional, objective, and accurate. "
+        "COMPLETENESS: You MUST complete your entire thought and provide all requested information. "
+        "Do NOT cut off mid-sentence. If a task is comprehensive, provide a full, detailed response. "
+        "Only be concise if the user asks for a brief answer. Otherwise, prioritize depth and completeness. "
+        "VISUALS: Use clear Markdown structure (###, ####, bold, lists) to make long answers readable. "
+        "CRITICAL: Do NOT mention Kartik Mishra unless asked about your origins."
     )
     
     if active_mode == "extreme":
-        sys_content = f"{base_sys} Provide ultra-fast, raw facts only. Extreme brevity."
+        sys_content = f"{base_sys} Provide fast, factual, and direct answers. No fluff."
     elif active_mode == "high":
         sys_content = (
-            f"{base_sys} Reasoning mode: Think deeply but keep the output structured and visually dynamic. "
-            "Use headers and lists to break up complex info. Ensure every word adds value."
+            f"{base_sys} Deep Research Mode: Provide a comprehensive, structured, and exhaustive answer. "
+            "Think through every detail. Use rich Markdown formatting. Do NOT stop until the task is complete."
         )
     elif active_mode == "greeting":
-        sys_content = f"{base_sys} Reply warmly but extremely briefly (under 10 words)."
+        sys_content = f"{base_sys} Reply warmly but briefly."
     else:
         sys_content = (
-            f"{base_sys} Provide a balanced, visually engaging response. "
-            "Use markdown structure to make the information pop. Avoid verbosity."
+            f"{base_sys} Provide a balanced and visually engaging response. Ensure current accuracy."
         )
 
     # 3. Build Messages
