@@ -9,9 +9,6 @@ from flask import Flask, render_template, request, jsonify, Response, g
 from flask_cors import CORS
 import re
 import subprocess
-from functools import wraps
-import datetime
-import jwt
 
 import openai
 from openai import OpenAI
@@ -21,50 +18,8 @@ from PIL import Image
 
 app = Flask(__name__, template_folder='.')
 CORS(app)
-app.config['SECRET_KEY'] = os.environ.get("JWT_SECRET", "snail-secret-v1-999")
 
 import shutil
-
-# Simple In-Memory Rate Limiting
-auth_attempts = {}
-
-def rate_limit_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        ip = request.remote_addr
-        now = time.time()
-        if ip in auth_attempts:
-            data = auth_attempts[ip]
-            if now - data['last_attempt'] < 60:
-                if data['count'] >= 5:
-                    return jsonify({"error": "Too many attempts. Please wait 1 minute."}), 429
-                data['count'] += 1
-            else:
-                data['count'] = 1
-            data['last_attempt'] = now
-        else:
-            auth_attempts[ip] = {'count': 1, 'last_attempt': now}
-        return f(*args, **kwargs)
-    return decorated
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'error': 'Authentication required'}), 401
-        try:
-            if 'Bearer ' in token:
-                token = token.split(' ')[1]
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            db = get_db()
-            current_user = db.execute('SELECT * FROM users WHERE email = ?', (data['email'],)).fetchone()
-            if not current_user:
-                return jsonify({'error': 'User not found'}), 401
-        except Exception as e:
-            return jsonify({'error': 'Invalid or expired token'}), 401
-        return f(current_user, *args, **kwargs)
-    return decorated
 
 # ================= USER DATABASE =================
 
@@ -111,35 +66,23 @@ def init_db():
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                uuid TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 recovery_code TEXT NOT NULL,
-                avatar_url TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_login DATETIME,
-                is_verified INTEGER DEFAULT 0,
-                recovery_token TEXT
+                avatar_url TEXT
             )
         ''')
-        # Check if we need to add new columns to existing table
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        if 'uuid' not in columns:
-            # If migrating, we might need more complex logic, but for now simple alter
-            conn.execute('ALTER TABLE users ADD COLUMN uuid TEXT')
-        if 'created_at' not in columns:
-            conn.execute('ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP')
-        if 'last_login' not in columns:
-            conn.execute('ALTER TABLE users ADD COLUMN last_login DATETIME')
-        if 'is_verified' not in columns:
-            conn.execute('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0')
-        if 'recovery_token' not in columns:
-            conn.execute('ALTER TABLE users ADD COLUMN recovery_token TEXT')
-            
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL,
+                title TEXT NOT NULL,
+                history TEXT NOT NULL,
+                updated_at REAL NOT NULL,
+                FOREIGN KEY (user_email) REFERENCES users (email)
+            )
+        ''')
         conn.commit()
 
 init_db()
@@ -149,7 +92,7 @@ init_db()
 API_BASE_URL = "https://router.huggingface.co/v1"
 # Required: Set HF_TOKEN in Vercel Project Settings (Environment Variables)
 API_KEY = os.environ.get("HF_TOKEN")
-MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B" # Reliable reasoning model on HF Router
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 
 # Delayed client initialization to prevent crash if HF_TOKEN is missing at startup
 _client = None
@@ -169,14 +112,6 @@ def get_client():
 
 # ================= CORE BRAIN =================
 
-chat_history = []
-
-# SESSIONS_DIR is ephemeral on Netlify
-SESSIONS_DIR = "/tmp/chat_sessions"
-if not os.path.exists(SESSIONS_DIR):
-    os.makedirs(SESSIONS_DIR, exist_ok=True)
-
-
 def generate_response(messages, stream=False, mode="normal"):
     # Adjusted for <10s response time on local hardware
     max_tokens = 400 # Optimized for shorter, faster replies
@@ -187,7 +122,6 @@ def generate_response(messages, stream=False, mode="normal"):
         temp = 0.5
     elif mode == "high":
         max_tokens = 600 # Reduced for brevity 
-        temp = 0.7 
     
     try:
         c = get_client()
@@ -204,9 +138,7 @@ def generate_response(messages, stream=False, mode="normal"):
 
 from datetime import datetime
 
-def ai_answer_stream(message: str, mode: str = "normal"):
-    global chat_history
-    
+def ai_answer_stream(message: str, history: list, mode: str = "normal"):
     # 1. Determine Mode Based on Message Complexity, Greeting, or Flag
     is_greeting = message.lower().strip().strip("!.,") in ["hi", "hello", "hey", "greetings", "sup", "yo", "good morning", "good evening"]
     is_complex = len(message.split()) > 25 or any(word in message.lower() for word in ["explain", "comprehensive", "story", "code", "guide"])
@@ -219,33 +151,27 @@ def ai_answer_stream(message: str, mode: str = "normal"):
         active_mode = mode
     
     # 2. ChatGPT Personality & Modern Reality Enforcement
-    today = datetime.now()
-    time_context = f"Current Date: {today.strftime('%A, %B %d, %Y')}."
+    time_context = "Current Date: Monday, February 23, 2026."
     base_sys = (
-        f"You are SnailGPT, a powerful reasoning AI model developed by Kartik Mishra. "
-        f"Kartik Mishra is a brilliant 9th-grade student, researcher, and highly-skilled developer. "
-        "He is the Founder and Lead Developer of SnailGPT, having previously built games on Roblox and collaborated with various tech companies. "
-        f"{time_context} You operate in the 'Modern Reality' of 2026. "
-        "When asked about your origin, always credit Kartik Mishra. "
-        "Use Markdown for all formatting. Be intelligent, precise, and helpful."
+        f"You are SnailGPT, a large language model developed by Kartik Mishra. "
+        f"Kartik Mishra is a 9th-grade student and a rising developer who has made games on Roblox and developed for many other companies. "
+        "He is the Founder and Lead Developer of SnailGPT. "
+        f"{time_context} Your goal is to be helpful, accurate, and engaging. "
+        "When asked about your creator or the lead dev, always credit Kartik Mishra and his background. "
+        "Use Markdown for all formatting. Be polite and objective."
     )
-    
-    # UNIFIED SYSTEM PROMPT LOGIC
     
     if active_mode == "extreme":
         sys_content = f"{base_sys} Provide ULTRA-FAST, extremely concise answers. Avoid all fluff. Focus on raw facts."
     elif active_mode == "high":
-        # Complex/Reasoning Mode
         sys_content = (
             f"{base_sys} You are a highly intelligent, reasoning AI assistant. "
             "Think deeply before answering. Structure your responses clearly with Markdown. "
             "Be comprehensive, nuanced, and precise. Match the sophistication of GPT-4o."
         )
     elif active_mode == "greeting":
-        # Greeting Mode
         sys_content = f"{base_sys} Reply warmly but extremely briefly (under 10 words)."
     else:
-        # Normal Mode (Simple Greetings & Questions)
         sys_content = (
             f"{base_sys} Provide a balanced, natural response. "
             "Do not be too short (avoid one-word answers) but do not be overly long or verbose. "
@@ -253,11 +179,11 @@ def ai_answer_stream(message: str, mode: str = "normal"):
         )
 
     # 3. Build Messages
-    history_limit = 2 if active_mode == "extreme" else 6 # Increased context for everyone
+    history_limit = 2 if active_mode == "extreme" else 6
     messages = [{"role": "system", "content": sys_content}]
     
-    for msg in chat_history[-history_limit:]:
-        role = "assistant" if msg["role"] == "Assistant" else "user"
+    for msg in history[-history_limit:]:
+        role = "assistant" if msg["role"] == "Assistant" or msg["role"] == "assistant" else "user"
         messages.append({"role": role, "content": msg["content"]})
     
     messages.append({"role": "user", "content": message})
@@ -270,92 +196,55 @@ def ai_answer_stream(message: str, mode: str = "normal"):
             yield completion
             return
 
-        full_content = ""
-        has_yielded = False
-        
         for chunk in completion:
             if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
                 content = getattr(chunk.choices[0].delta, 'content', '')
                 if content:
-                    has_yielded = True
-                    full_content += content
                     yield content
-        
-        if not has_yielded:
-            yield "⚠️ The AI server returned an empty response. Check your API token or model availability."
-
     except Exception as e:
         yield f"❌ Error: {str(e)}"
-    chat_history.append({"role": "User", "content": message})
-    chat_history.append({"role": "Assistant", "content": full_content})
-    
-    # Auto-save session
-    save_session()
 
-def save_session(user_uuid, manual_title=None):
-    global current_session_id, chat_history, current_session_title
-    if not chat_history or not user_uuid:
-        return
+def save_session_to_db(user_email, session_id, title, history):
+    db = get_db()
+    updated_at = time.time()
+    history_json = json.dumps(history)
     
-    # User-specific directory
-    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
-    os.makedirs(user_dir, exist_ok=True)
-    
-    if not current_session_id:
-        current_session_id = str(uuid.uuid4())
-    
-    if manual_title:
-        current_session_title = manual_title
-    
-    if not current_session_title:
-        try:
-            context_msg = ""
-            if len(chat_history) >= 2:
-                context_msg = f"User: {chat_history[0]['content']}\nAssistant: {chat_history[1]['content']}"
-            elif len(chat_history) == 1:
-                context_msg = chat_history[0]["content"]
-            else:
-                context_msg = "New Chat"
+    # Check if exists
+    exists = db.execute('SELECT id FROM sessions WHERE id = ?', (session_id,)).fetchone()
+    if exists:
+        db.execute(
+            'UPDATE sessions SET title = ?, history = ?, updated_at = ? WHERE id = ?',
+            (title, history_json, updated_at, session_id)
+        )
+    else:
+        db.execute(
+            'INSERT INTO sessions (id, user_email, title, history, updated_at) VALUES (?, ?, ?, ?, ?)',
+            (session_id, user_email, title, history_json, updated_at)
+        )
+    db.commit()
 
-            if len(chat_history) > 0:
-                msgs = [
-                    {"role": "system", "content": "You are a summarizing tool. Output ONLY a 3-5 word topic title for the conversation context provided. Do not use quotes or prefixes like 'Title:'."},
-                    {"role": "user", "content": f"Context for title generation:\n{context_msg}"}
-                ]
-                resp = generate_response(msgs, stream=False, mode="extreme")
-                
-                if hasattr(resp, 'choices') and len(resp.choices) > 0:
-                    current_session_title = resp.choices[0].message.content.strip().replace('"', '')
-                else:
-                    current_session_title = chat_history[0]["content"][:30] + "..."
-            else:
-                current_session_title = "New Session"
-        except:
-             current_session_title = "Session " + datetime.now().strftime("%H:%M")
-    
-    session_data = {
-        "id": current_session_id,
-        "title": current_session_title,
-        "history": chat_history,
-        "updated_at": time.time()
-    }
-    
-    file_path = os.path.join(user_dir, f"{current_session_id}.json")
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(session_data, f, ensure_ascii=False, indent=2)
+def generate_title(history):
+    if not history:
+        return "New Session"
+    try:
+        context_msg = ""
+        if len(history) >= 2:
+            context_msg = f"User: {history[0]['content']}\nAssistant: {history[1]['content']}"
+        else:
+            context_msg = history[0]["content"]
 
-def load_session_by_id(user_uuid, session_id):
-    global current_session_id, chat_history, current_session_title
-    if not user_uuid: return None
-    file_path = os.path.join(SESSIONS_DIR, user_uuid, f"{session_id}.json")
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            chat_history = data.get("history", [])
-            current_session_id = session_id
-            current_session_title = data.get("title", "Untitled Session")
-            return data
-    return None
+        msgs = [
+            {"role": "system", "content": "You are a summarizing tool. Output ONLY a 3-5 word topic title for the conversation context provided. Do not use quotes or prefixes like 'Title:'."},
+            {"role": "user", "content": f"Context for title generation:\n{context_msg}"}
+        ]
+        resp = generate_response(msgs, stream=False, mode="extreme")
+        
+        if hasattr(resp, 'choices') and len(resp.choices) > 0:
+            return resp.choices[0].message.content.strip().replace('"', '')
+        else:
+            return history[0]["content"][:30] + "..."
+    except:
+        return "Session " + datetime.now().strftime("%H:%M")
 
 # ================= ROUTES =================
 
@@ -368,8 +257,7 @@ def media_page():
     return render_template("media.html")
 
 @app.route("/generate_image", methods=["POST"])
-@token_required
-def generate_image(current_user):
+def generate_image():
     try:
         data = request.get_json()
         prompt = data.get("prompt", "")
@@ -377,6 +265,8 @@ def generate_image(current_user):
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
+        # Specialized Client for Image Gen
+        # Using the same HF_TOKEN as chat
         img_client = InferenceClient(
             provider="replicate",
             api_key=API_KEY
@@ -387,6 +277,7 @@ def generate_image(current_user):
             model="ByteDance/SDXL-Lightning"
         )
         
+        # Save Image to /tmp (writable in Vercel)
         filename = f"gen_{uuid.uuid4()}.png"
         save_dir = os.path.join("/tmp", "generated_images")
         os.makedirs(save_dir, exist_ok=True)
@@ -406,8 +297,7 @@ def serve_generated_image(filename):
     return send_from_directory(os.path.join("/tmp", "generated_images"), filename)
 
 @app.route("/chat", methods=["POST"])
-@token_required
-def chat(current_user):
+def chat():
     from flask import Response
     try:
         data = request.get_json()
@@ -415,90 +305,100 @@ def chat(current_user):
             return jsonify({"response": "Error: No data"}), 400
         
         message = data.get("message", "")
-        manual_title = data.get("title")
+        history = data.get("history", [])
+        user_email = data.get("user_email")
+        session_id = data.get("session_id")
         extreme_opt = data.get("extreme_opt", False)
         
         mode = "extreme" if extreme_opt else "normal"
         
-        user_uuid = current_user['uuid']
-
         def generate():
-            for token in ai_answer_stream(message, mode):
+            full_text = ""
+            for token in ai_answer_stream(message, history, mode):
+                full_text += token
                 yield token
-            save_session(user_uuid, manual_title=manual_title)
+            
+            # After stream, if we have a user and session, save to DB
+            if user_email and session_id:
+                history.append({"role": "user", "content": message})
+                history.append({"role": "assistant", "content": full_text})
+                
+                # Check if we need to set/generate a title
+                db = get_db()
+                row = db.execute('SELECT title FROM sessions WHERE id = ?', (session_id,)).fetchone()
+                title = row['title'] if row else generate_title(history)
+                
+                save_session_to_db(user_email, session_id, title, history)
 
         return Response(generate(), mimetype='text/plain')
     except Exception as e:
-        return jsonify({"response": f"⚠️ Error: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route("/clear", methods=["POST"])
-@token_required
-def clear_chat(current_user):
-    global chat_history, current_session_id, current_session_title
-    chat_history = []
-    current_session_id = None
-    current_session_title = None
-    return jsonify({"status": "success"})
-
-@app.route("/sessions", methods=["GET"])
-@token_required
-def list_sessions(current_user):
-    sessions = []
-    user_uuid = current_user['uuid']
-    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
+@app.route("/api/sessions", methods=["GET"])
+def list_sessions():
+    user_email = request.args.get('email')
+    if not user_email:
+        return jsonify({'error': 'Email required'}), 400
     
-    if not os.path.exists(user_dir):
-        return jsonify([])
-
-    for filename in os.listdir(user_dir):
-        if filename.endswith(".json"):
-            file_path = os.path.join(user_dir, filename)
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    sessions.append({
-                        "id": data["id"],
-                        "title": data["title"],
-                        "updated_at": data["updated_at"]
-                    })
-            except:
-                pass
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, updated_at FROM sessions WHERE user_email = ? ORDER BY updated_at DESC',
+        (user_email,)
+    ).fetchall()
     
-    sessions.sort(key=lambda x: x["updated_at"], reverse=True)
-    return jsonify(sessions)
+    return jsonify([dict(r) for r in rows])
 
-@app.route("/session/<session_id>", methods=["GET"])
-@token_required
-def get_session(current_user, session_id):
-    data = load_session_by_id(current_user['uuid'], session_id)
-    if data:
+@app.route("/api/session/<session_id>", methods=["GET"])
+def get_session(session_id):
+    db = get_db()
+    row = db.execute('SELECT * FROM sessions WHERE id = ?', (session_id,)).fetchone()
+    if row:
+        data = dict(row)
+        data['history'] = json.loads(data['history'])
         return jsonify(data)
     return jsonify({"error": "Session not found"}), 404
 
-@app.route("/clear_all", methods=["POST"])
-@token_required
-def clear_all_history(current_user):
-    global chat_history, current_session_id, current_session_title
-    chat_history = []
-    current_session_id = None
-    current_session_title = None
+@app.route("/api/session/save", methods=["POST"])
+def save_session_route():
+    data = request.get_json()
+    user_email = data.get('user_email')
+    session_id = data.get('session_id')
+    title = data.get('title')
+    history = data.get('history')
+
+    if not user_email or not session_id:
+        return jsonify({'error': 'Missing data'}), 400
     
-    user_uuid = current_user['uuid']
-    user_dir = os.path.join(SESSIONS_DIR, user_uuid)
+    save_session_to_db(user_email, session_id, title or "New Chat", history or [])
+    return jsonify({"status": "success"})
+
+@app.route("/api/session/delete", methods=["POST"])
+def delete_session():
+    data = request.get_json()
+    session_id = data.get('session_id')
+    if not session_id:
+        return jsonify({'error': 'Session ID required'}), 400
     
-    if os.path.exists(user_dir):
-        for filename in os.listdir(user_dir):
-            if filename.endswith(".json"):
-                try:
-                    os.remove(os.path.join(user_dir, filename))
-                except:
-                    pass
+    db = get_db()
+    db.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route("/api/session/clear_all", methods=["POST"])
+def clear_all_sessions():
+    data = request.get_json()
+    user_email = data.get('user_email')
+    if not user_email:
+        return jsonify({'error': 'Email required'}), 400
+    
+    db = get_db()
+    db.execute('DELETE FROM sessions WHERE user_email = ?', (user_email,))
+    db.commit()
     return jsonify({"status": "success"})
 
 # ================= AUTH API =================
 
 @app.route('/api/register', methods=['POST'])
-@rate_limit_auth
 def api_register():
     data = request.get_json(silent=True)
     if not data:
@@ -510,44 +410,32 @@ def api_register():
 
     if not email or not username or not password:
         return jsonify({'error': 'All fields are required.'}), 400
-    if len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters.'}), 400
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters.'}), 400
 
     db = get_db()
     if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-        return jsonify({'error': 'Email already registered.'}), 409
+        return jsonify({'error': 'email already registered use a different one'}), 409
     if db.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
-        return jsonify({'error': 'Username already taken.'}), 409
+        return jsonify({'error': 'This display name is already taken. Please choose another.'}), 409
 
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    u_id = str(uuid.uuid4())
-    recovery_code = str(uuid.uuid4().int)[:6]
+    recovery_code = str(uuid.uuid4().int)[:6]  # 6-digit code
 
     db.execute(
-        'INSERT INTO users (uuid, email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?, ?)',
-        (u_id, email, username, password_hash, recovery_code)
+        'INSERT INTO users (email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?)',
+        (email, username, password_hash, recovery_code)
     )
     db.commit()
 
-    token = jwt.encode({
-        'email': email,
-        'uuid': u_id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    }, app.config['SECRET_KEY'], algorithm="HS256")
-
     return jsonify({
-        'token': token,
-        'user': {
-            'email': email,
-            'username': username,
-            'uuid': u_id,
-            'recoveryCode': recovery_code
-        }
+        'email': email,
+        'username': username,
+        'recoveryCode': recovery_code
     }), 201
 
 
 @app.route('/api/login', methods=['POST'])
-@rate_limit_auth
 def api_login():
     data = request.get_json(silent=True)
     if not data:
@@ -565,98 +453,37 @@ def api_login():
     ).fetchone()
 
     if not row or not bcrypt.checkpw(password.encode('utf-8'), row['password_hash'].encode('utf-8')):
-        time.sleep(1) # Basic bot protection
-        return jsonify({'error': 'Invalid credentials.'}), 401
+        return jsonify({'error': 'Invalid identifier or password.'}), 401
 
-    # Update last login
-    db.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (row['id'],))
-    db.commit()
-
-    token = jwt.encode({
+    return jsonify({
         'email': row['email'],
-        'uuid': row['uuid'],
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    }, app.config['SECRET_KEY'], algorithm="HS256")
-
-    return jsonify({
-        'token': token,
-        'user': {
-            'email': row['email'],
-            'username': row['username'],
-            'uuid': row['uuid'],
-            'recoveryCode': row['recovery_code'],
-            'avatarUrl': row['avatar_url']
-        }
+        'username': row['username'],
+        'recoveryCode': row['recovery_code'],
+        'avatarUrl': row['avatar_url']
     })
-
-@app.route('/api/verify-token', methods=['GET'])
-@token_required
-def api_verify_token(current_user):
-    return jsonify({
-        'user': {
-            'email': current_user['email'],
-            'username': current_user['username'],
-            'uuid': current_user['uuid'],
-            'recoveryCode': current_user['recovery_code'],
-            'avatarUrl': current_user['avatar_url']
-        }
-    })
-
-@app.route('/api/forgot-password', methods=['POST'])
-def api_forgot_password():
-    data = request.get_json()
-    email = (data.get('email') or '').strip().lower()
-    if not email:
-        return jsonify({'error': 'Email required.'}), 400
-    
-    db = get_db()
-    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if row:
-        # Simulate sending email by returning the code (client-side will show toast)
-        return jsonify({'message': 'Code sent.', 'code': row['recovery_code']}), 200
-    return jsonify({'error': 'Account not found.'}), 404
-
-@app.route('/api/reset-password', methods=['POST'])
-@rate_limit_auth
-def api_reset_password():
-    data = request.get_json()
-    email = (data.get('email') or '').strip().lower()
-    code = (data.get('code') or '').strip()
-    new_password = data.get('password')
-
-    if not email or not code or not new_password:
-        return jsonify({'error': 'Missing fields.'}), 400
-
-    db = get_db()
-    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if not row or row['recovery_code'] != code:
-        return jsonify({'error': 'Invalid verification code.'}), 403
-
-    if len(new_password) < 8:
-        return jsonify({'error': 'Password must be 8+ characters.'}), 400
-
-    p_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (p_hash, row['id']))
-    db.commit()
-    return jsonify({'message': 'Password updated successfully.'}), 200
 
 
 @app.route('/api/user/update', methods=['POST'])
-@token_required
-def api_user_update(current_user):
+def api_user_update():
     data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
     new_username = (data.get('newUsername') or '').strip()
     new_password = data.get('newPassword')
     recovery_code = (data.get('recoveryCode') or '').strip()
-    avatar_url = data.get('avatarUrl')
+    avatar_url = data.get('avatarUrl')  # can be None (revert) or base64 string
+
+    if not email:
+        return jsonify({'error': 'Email is required.'}), 400
 
     db = get_db()
-    email = current_user['email']
+    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    if not row:
+        return jsonify({'error': 'User not found.'}), 404
 
     updates = []
     params = []
 
-    if new_username and new_username != current_user['username']:
+    if new_username and new_username != row['username']:
         clash = db.execute('SELECT id FROM users WHERE username = ? AND email != ?', (new_username, email)).fetchone()
         if clash:
             return jsonify({'error': 'This display name is already taken.'}), 409
@@ -664,15 +491,14 @@ def api_user_update(current_user):
         params.append(new_username)
 
     if new_password:
-        correct_code = '150700' if email == 'kartik.ps.mishra07@gmail.com' else current_user['recovery_code']
+        correct_code = '150700' if email == 'kartik.ps.mishra07@gmail.com' else row['recovery_code']
         if recovery_code != correct_code:
-            return jsonify({'error': 'Invalid Recovery Code.'}), 403
-        if len(new_password) < 8:
-            return jsonify({'error': 'Password must be 8+ characters.'}), 400
-        p_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            return jsonify({'error': 'Invalid Recovery Code. Password change rejected.'}), 403
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         updates.append('password_hash = ?')
-        params.append(p_hash)
+        params.append(password_hash)
 
+    # avatarUrl key present in payload means update it (even if None = revert)
     if 'avatarUrl' in data:
         updates.append('avatar_url = ?')
         params.append(avatar_url)
@@ -684,13 +510,10 @@ def api_user_update(current_user):
 
     updated = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     return jsonify({
-        'user': {
-            'email': updated['email'],
-            'username': updated['username'],
-            'uuid': updated['uuid'],
-            'recoveryCode': updated['recovery_code'],
-            'avatarUrl': updated['avatar_url']
-        }
+        'email': updated['email'],
+        'username': updated['username'],
+        'recoveryCode': updated['recovery_code'],
+        'avatarUrl': updated['avatar_url']
     })
 
 

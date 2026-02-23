@@ -17,7 +17,7 @@
 </head>
 
 <body class="theme-midnight">
-    <canvas id="bg-canvas"></canvas>
+    <canvas id="particle-canvas"></canvas>
     <div class="mesh-container" id="background-mesh"></div>
 
     <!-- 1. HOME PAGE -->
@@ -41,17 +41,26 @@
                 </div>
             </div>
 
-            <!-- Original Casual Wordmark -->
+            <!-- Premium Logo Wordmark -->
             <div class="hero-wordmark">
-                <h1 class="hero-logo-text">SnailGPT</h1>
-                <p class="hero-tagline">Smart AI Research Assistant</p>
+                <div class="hero-badge">AI Research Assistant</div>
+                <h1 class="hero-logo-text">Snail<span class="logo-accent">GPT</span></h1>
+                <p class="hero-tagline">Precision intelligence for the curious mind.</p>
             </div>
 
             <div class="hero-actions">
                 <button id="nav-signup-btn" class="primary-btn">Sign Up</button>
                 <button id="nav-login-btn" class="primary-btn">Log In</button>
             </div>
+
+            <!-- Feature tag row -->
+            <div class="hero-tags">
+                <span class="hero-tag"><i class="fas fa-bolt"></i> Streaming Responses</span>
+                <span class="hero-tag"><i class="fas fa-lock"></i> Private Sessions</span>
+                <span class="hero-tag"><i class="fas fa-palette"></i> Custom Themes</span>
+            </div>
         </div>
+        <div class="hero-bg-overlay"></div>
     </div>
 
     <!-- 2. AUTH PAGE (Signup & Login) -->
@@ -64,18 +73,12 @@
                 <h2>Welcome Back</h2>
                 <form id="login-form">
                     <div class="input-group">
-                        <label class="tag-label">Email or Username</label>
-                        <input type="text" id="login-id" required placeholder="name@example.com">
+                        <label class="tag-label">Identifier</label>
+                        <input type="text" id="login-id" required placeholder="Email or Username">
                     </div>
                     <div class="input-group">
                         <label class="tag-label">Password</label>
                         <input type="password" id="login-password" required placeholder="••••••••">
-                    </div>
-                    <div class="auth-options">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="login-remember"> Remember Me
-                        </label>
-                        <span id="goto-forgot-btn" class="text-link">Forgot Password?</span>
                     </div>
                     <button type="submit" id="login-submit-btn" class="primary-btn">Login</button>
                     <p class="auth-switch">New researcher? <span id="switch-to-signup-btn">Sign Up</span></p>
@@ -87,8 +90,8 @@
                 <h2>Create Account</h2>
                 <form id="signup-form">
                     <div class="input-group">
-                        <label class="tag-label">Username</label>
-                        <input type="text" id="signup-username" required placeholder="e.g. SnailExplorer">
+                        <label class="tag-label">Name</label>
+                        <input type="text" id="signup-username" required placeholder="Snail Researcher">
                     </div>
                     <div class="input-group">
                         <label class="tag-label">Email</label>
@@ -106,20 +109,6 @@
                     <p class="auth-switch">Already recorded? <span id="switch-to-login-btn">Login</span></p>
                 </form>
             </div>
-
-            <!-- Forgot Password Card -->
-            <div id="forgot-section" class="auth-card hidden">
-                <h2>Reset Password</h2>
-                <p>Enter your email to receive a recovery code.</p>
-                <form id="forgot-form">
-                    <div class="input-group">
-                        <label class="tag-label">Email</label>
-                        <input type="email" id="forgot-email" required placeholder="name@example.com">
-                    </div>
-                    <button type="submit" id="forgot-submit-btn" class="primary-btn">Send Code</button>
-                    <p class="auth-switch">Remembered? <span id="switch-to-login-from-forgot">Back to Login</span></p>
-                </form>
-            </div>
         </div>
     </div>
 
@@ -127,6 +116,7 @@
     <div id="app-page" class="page-view hidden">
         <div id="app-container">
             <!-- Sidebar -->
+            <div id="sidebar-overlay" class="sidebar-overlay"></div>
             <aside id="sidebar">
                 <!-- Sidebar Header -->
                 <div class="sidebar-header">
@@ -225,6 +215,7 @@
             <main id="main-content">
                 <header id="main-header">
                     <div class="header-left">
+                        <button id="mobile-menu-toggle" class="mobile-only-btn"><i class="fas fa-bars"></i></button>
                         <div id="header-user-avatar" class="header-avatar" style="display: none;"></div>
                         <div id="logo-text"
                             style="font-family:'Orbitron', sans-serif; font-weight:900; background:var(--primary-gradient); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-size:1.5rem; letter-spacing:1px;">
@@ -352,7 +343,7 @@
         </div>
     </div>
 
-    <script type="module" src="static/js/background.js"></script>
+    <script src="static/js/particles.js"></script>
     <script type="module" src="static/js/main.js"></script>
 </body>
 

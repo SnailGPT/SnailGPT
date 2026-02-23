@@ -1,4 +1,5 @@
 import CONFIG from './config.js';
+import ParticleNetwork from './particles.js';
 import DB from './db.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,7 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
         profile: document.getElementById('profile-page')
     };
 
-    // Interactive Background is initialized in background.js via window 'load' event
+    // Initialize Interactive Background
+    let bgNetwork = null;
+    const particleCanvas = document.getElementById('particle-canvas');
+    if (particleCanvas) {
+        bgNetwork = new ParticleNetwork('particle-canvas');
+    }
 
     // Removed redundant theme dropdown listeners. Handled at the bottom via setupMenuDropdown
 
@@ -32,10 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth section refs
     const loginSection = document.getElementById('login-section');
     const signupSection = document.getElementById('signup-section');
-    const forgotSection = document.getElementById('forgot-section');
-
-    const forgotForm = document.getElementById('forgot-form');
-    const forgotEmailInput = document.getElementById('forgot-email');
     // --- Verification Logic ---
     const sendCode = (email) => {
         if (!email) {
@@ -83,16 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page === 'profile') loadProfileData();
         },
         toggleAuth: (mode) => {
-            loginSection.classList.add('hidden');
-            signupSection.classList.add('hidden');
-            forgotSection.classList.add('hidden');
-
             if (mode === 'login') {
                 loginSection.classList.remove('hidden');
-            } else if (mode === 'signup') {
+                signupSection.classList.add('hidden');
+            } else {
+                loginSection.classList.add('hidden');
                 signupSection.classList.remove('hidden');
-            } else if (mode === 'forgot') {
-                forgotSection.classList.remove('hidden');
             }
         }
     };
@@ -121,8 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackHome = document.getElementById('auth-back-home');
     const btnSwitchSignup = document.getElementById('switch-to-signup-btn');
     const btnSwitchLogin = document.getElementById('switch-to-login-btn');
-    const btnGotoForgot = document.getElementById('goto-forgot-btn');
-    const btnBackToLoginFromForgot = document.getElementById('switch-to-login-from-forgot');
 
     if (btnSignup) btnSignup.onclick = () => {
         router.navigate('auth');
@@ -133,10 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
         router.toggleAuth('login');
     };
     if (btnBackHome) btnBackHome.onclick = () => router.navigate('home');
-    if (btnSwitchSignup) btnSwitchSignup.onclick = () => router.toggleAuth('signup');
-    if (btnSwitchLogin) btnSwitchLogin.onclick = () => router.toggleAuth('login');
-    if (btnGotoForgot) btnGotoForgot.onclick = () => router.toggleAuth('forgot');
-    if (btnBackToLoginFromForgot) btnBackToLoginFromForgot.onclick = () => router.toggleAuth('login');
+    if (btnSwitchSignup) btnSwitchSignup.onclick = () => {
+        router.toggleAuth('signup');
+    };
+    if (btnSwitchLogin) btnSwitchLogin.onclick = () => {
+        router.toggleAuth('login');
+    };
 
     // Signup Submit
     if (signupForm) signupForm.onsubmit = async (e) => {
@@ -172,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('login-password').value;
 
         const submitBtn = loginForm.querySelector('button[type=submit]');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...'; }
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Logging in…'; }
 
         try {
             const savedUser = await DB.loginUser(id, password);
@@ -183,38 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(err.message);
         } finally {
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Login'; }
-        }
-    };
-
-    // Forgot Password Flow
-    if (forgotForm) forgotForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const email = forgotEmailInput.value.trim();
-        const submitBtn = forgotForm.querySelector('button[type=submit]');
-
-        if (!email) return;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
-        try {
-            const res = await DB.forgotPassword(email);
-            // Simulate receiving email by showing the code in a toast
-            sendSimulatedEmail(res.code);
-
-            const newPassword = prompt("A recovery code has been sent to your 'email'.\nEnter the 6-Digit Code:");
-            if (newPassword) {
-                const pass = prompt("Enter your NEW Password (min 8 characters):");
-                if (pass) {
-                    await DB.resetPassword(email, newPassword, pass);
-                    alert("Password reset successful! Please login.");
-                    router.toggleAuth('login');
-                }
-            }
-        } catch (err) {
-            alert(err.message);
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Send Code';
         }
     };
 
@@ -272,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Load sessions from server
         loadSessions();
     }
 
@@ -494,13 +459,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Clear History ----
     const clearHistoryBtn = document.getElementById('clear-history-btn');
     if (clearHistoryBtn) {
-        clearHistoryBtn.onclick = () => {
+        clearHistoryBtn.onclick = async () => {
             if (!currentUser) return;
             if (!confirm('Delete all chat history? This cannot be undone.')) return;
-            DB.clearConversations(currentUser.email);
+            await DB.clearConversations(currentUser.email);
             currentSessionId = null;
             chatHistory = [];
-            if (chatMessages) chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+            if (chatMessages) chatMessages.innerHTML = '';
+            chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
             clearHistoryBtn.classList.add('hidden');
             if (historyList) historyList.innerHTML = '';
         };
@@ -510,6 +476,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendMessage() {
         const message = userInput.value.trim();
         if (!message) return;
+
+        if (!currentSessionId) {
+            currentSessionId = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+        }
 
         appendMessage('user', message);
         userInput.value = '';
@@ -523,22 +493,23 @@ document.addEventListener('DOMContentLoaded', () => {
         let aiMessageContent = null;
         let fullText = "";
 
-        chatHistory.push({ role: "user", content: message });
+        // Copy history to avoid mutation issues during stream
+        const historyCopy = [...chatHistory];
 
         try {
             const isExtremeOpt = document.body.classList.contains('extreme-opt');
 
             const payload = {
                 message: message,
+                history: historyCopy,
+                user_email: currentUser?.email,
+                session_id: currentSessionId,
                 extreme_opt: isExtremeOpt
             };
 
             const response = await fetch(`/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...DB.getAuthHeader()
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 signal: currentAbortController.signal
             });
@@ -566,11 +537,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollToBottom();
                 }
             }
+            chatHistory.push({ role: "user", content: message });
             chatHistory.push({ role: "assistant", content: fullText });
-            saveSession();
+            // Backend saves automatically after stream
+            loadSessions();
         } catch (error) {
             toggleTyping(false);
-            appendMessage('ai', error.name === 'AbortError' ? "_Cancelled._" : "⚠️ Error: " + error.message);
+            if (error.name !== 'AbortError') {
+                appendMessage('ai', "⚠️ Error: " + error.message);
+            }
         } finally {
             currentAbortController = null;
             userInput.disabled = false;
@@ -609,88 +584,32 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
-    function saveSession() {
-        // Local saving is still useful for immediate UI updates
-        if (!chatHistory.length) return;
-        if (!currentUser) return;
-
-        if (!currentSessionId) {
-            // After first message, the ID might still be null until server returns it
-            // but the /chat route now handles saving.
-            // We'll refresh the list soon.
-        }
-
-        const convo = {
-            id: currentSessionId || 'pending',
-            title: chatHistory[0].content.substring(0, 30),
-            history: chatHistory,
-            timestamp: Date.now()
-        };
-
-        DB.saveConversation(currentUser.email, convo);
-        loadSessions(); // Re-fetch to sync
-    }
-
     async function loadSessions() {
         if (!historyList || !currentUser) return;
+        const sessions = await DB.getConversations(currentUser.email);
+        historyList.innerHTML = '';
+        // Show or hide Clear History button
+        const clearBtn = document.getElementById('clear-history-btn');
+        if (clearBtn) clearBtn.classList.toggle('hidden', sessions.length === 0);
 
-        try {
-            // Get combined sessions (Remote + Local)
-            const remoteSessions = await DB.getRemoteSessions();
-            const localSessions = DB.getConversations(currentUser.email);
-
-            // Deduplicate and merge
-            const combined = [...remoteSessions];
-            localSessions.forEach(ls => {
-                if (!combined.find(rs => rs.id === ls.id)) {
-                    combined.push({
-                        id: ls.id,
-                        title: ls.title,
-                        updated_at: ls.timestamp / 1000
-                    });
-                }
-            });
-
-            historyList.innerHTML = '';
-            const clearBtn = document.getElementById('clear-history-btn');
-            if (clearBtn) clearBtn.classList.toggle('hidden', combined.length === 0);
-
-            combined.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0)).forEach(s => {
-                const item = document.createElement('div');
-                item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
-                item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
-                item.onclick = () => loadSession(s.id);
-                historyList.appendChild(item);
-            });
-        } catch (err) {
-            console.error("Failed to load sessions:", err);
-        }
+        sessions.forEach(s => {
+            const item = document.createElement('div');
+            item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
+            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
+            item.onclick = () => loadSession(s.id);
+            historyList.appendChild(item);
+        });
     }
 
     async function loadSession(id) {
         if (!currentUser) return;
-
-        try {
-            const s = await DB.getRemoteSession(id);
-            if (s) {
-                currentSessionId = id;
-                chatHistory = s.history;
-                chatMessages.innerHTML = '';
-                chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
-                loadSessions();
-                return;
-            }
-        } catch (e) {
-            // Fallback to local
-            const sessions = DB.getConversations(currentUser.email);
-            const ls = sessions.find(x => x.id === id);
-            if (ls) {
-                currentSessionId = id;
-                chatHistory = ls.history;
-                chatMessages.innerHTML = '';
-                chatHistory.forEach(m => appendMessage(m.role === 'assistant' ? 'ai' : 'user', m.content));
-                loadSessions();
-            }
+        const s = await DB.getConversation(id);
+        if (s) {
+            currentSessionId = id;
+            chatHistory = s.history;
+            chatMessages.innerHTML = '';
+            chatHistory.forEach(m => appendMessage(m.role === 'assistant' || m.role === 'ai' ? 'ai' : 'user', m.content));
+            loadSessions();
         }
     }
 
@@ -836,17 +755,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const navImg = document.getElementById('nav-image-gen');
     if (navImg) navImg.onclick = () => window.location.href = 'media.html';
 
-    // --- Init ---
-    async function initSession() {
-        const user = await DB.verifyToken();
-        if (user) {
-            currentUser = user;
-            DB.setCurrentUser(user);
-            router.navigate('app');
-        } else {
-            router.navigate('home');
-        }
+    // --- Mobile Menu Toggle ---
+    const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    function toggleMobileMenu(show) {
+        if (!sidebar || !sidebarOverlay) return;
+        sidebar.classList.toggle('mobile-active', show);
+        sidebarOverlay.classList.toggle('active', show);
     }
 
-    initSession();
+    if (mobileMenuBtn) {
+        mobileMenuBtn.onclick = () => toggleMobileMenu(true);
+    }
+    if (sidebarOverlay) {
+        sidebarOverlay.onclick = () => toggleMobileMenu(false);
+    }
+
+    // Close sidebar on selection (Mobile)
+    const historySection = document.getElementById('history-list');
+    if (historySection) {
+        historySection.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768) {
+                if (e.target.closest('.history-item')) toggleMobileMenu(false);
+            }
+        });
+    }
+    if (btnNewChat) {
+        const originalNewChat = btnNewChat.onclick;
+        btnNewChat.onclick = () => {
+            originalNewChat();
+            if (window.innerWidth <= 768) toggleMobileMenu(false);
+        };
+    }
+
+    // --- Init ---
+    if (currentUser) {
+        router.navigate('app');
+    } else {
+        router.navigate('home');
+    }
 });
