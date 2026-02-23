@@ -277,7 +277,8 @@
 </head>
 
 <body class="theme-midnight" data-anim="high">
-    <div class="mesh-container"></div>
+    <canvas id="bg-canvas"></canvas>
+    <div class="mesh-container" id="background-mesh"></div>
 
     <div id="app-container">
         <!-- Sidebar -->
@@ -338,6 +339,7 @@
         </main>
     </div>
 
+    <script type="module" src="static/js/background.js"></script>
     <script type="module">
         import CONFIG from './static/js/config.js';
 

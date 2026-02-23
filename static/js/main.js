@@ -1,5 +1,4 @@
 import CONFIG from './config.js';
-import ParticleNetwork from './particles.js';
 import DB from './db.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,12 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profile: document.getElementById('profile-page')
     };
 
-    // Initialize Interactive Background
-    let bgNetwork = null;
-    const particleCanvas = document.getElementById('particle-canvas');
-    if (particleCanvas) {
-        bgNetwork = new ParticleNetwork('particle-canvas');
-    }
+    // Interactive Background is initialized in background.js via window 'load' event
 
     // Removed redundant theme dropdown listeners. Handled at the bottom via setupMenuDropdown
 
