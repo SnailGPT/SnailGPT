@@ -92,7 +92,7 @@ init_db()
 API_BASE_URL = "https://router.huggingface.co/v1"
 # Required: Set HF_TOKEN in Vercel Project Settings (Environment Variables)
 API_KEY = os.environ.get("HF_TOKEN")
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_NAME = "meta-llama/Llama-3.1-70B-Instruct" # Highly stable for high-token output
 
 # Delayed client initialization to prevent crash if HF_TOKEN is missing at startup
 _client = None
@@ -106,26 +106,26 @@ def get_client():
         _client = OpenAI(
             base_url=API_BASE_URL,
             api_key=api_key,
-            timeout=60.0 
+            timeout=180.0 
         )
     return _client
 
 # ================= CORE BRAIN =================
 
 def generate_response(messages, stream=False, mode="normal"):
-    # Massively increased token limits to support deep research and comprehensive answers
-    max_tokens = 4096 
-    temp = 0.75
+    # Max tokens set to high limits to prevent premature stops
+    max_tokens = 8192 
+    temp = 0.7
     
     if mode == "extreme":
-        max_tokens = 1024
-        temp = 0.6
+        max_tokens = 2048
+        temp = 0.5
     elif mode == "high":
-        max_tokens = 8192 # Unlocked for massive research papers and full code files
+        max_tokens = 16384 # Maximum for deep research
     elif mode == "greeting":
-        max_tokens = 150
+        max_tokens = 300
     elif mode == "title":
-        max_tokens = 50
+        max_tokens = 100
     
     try:
         c = get_client()
@@ -135,7 +135,7 @@ def generate_response(messages, stream=False, mode="normal"):
             stream=stream,
             temperature=temp,
             max_tokens=max_tokens,
-            timeout=120.0 # Increased timeout for long generations
+            timeout=180.0
         )
         return completion
     except Exception as e:
@@ -155,43 +155,42 @@ def ai_answer_stream(message: str, history: list, mode: str = "normal"):
     else:
         active_mode = mode
     
-    # 2. Personality & Response Architecture
+    # 2. Personality & Response Architecture (Anti-Yap/High-Utility)
     time_context = "Current Date: Monday, February 23, 2026."
     base_sys = (
-        f"You are SnailGPT, a highly informative AI assistant. {time_context} "
-        "Your goal is to deliver maximum utility with extreme verbal efficiency. "
+        f"You are SnailGPT, a high-density information engine. {time_context} "
+        "Your mission is to provide MAXIMUM value with ZERO 'yap' or conversational filler. "
         "CORE RULES: \n"
-        "1. Give the answer immediately—no long intros or fluff.\n"
-        "2. Be concise, structured, and highly informative while minimizing length.\n"
-        "3. Prioritize clarity over verbosity. Short but complete.\n"
-        "4. Avoid redundant explanations, filler text, or repetition.\n"
-        "5. Use clean formatting: short paragraphs, minimal bullet points, no walls of text.\n"
-        "6. Tone: Direct, confident, and helpful. Do not over-explain simple concepts.\n"
-        "7. Examples only if essential for clarity.\n"
-        "BALANCE: Be efficient but never incomplete. If a short answer fully covers the prompt, use it.\n"
-        "CRITICAL: Do NOT mention Kartik Mishra unless specifically asked about your origin."
+        "1. NO INTROS: Give the answer immediately. Skip 'Sure', 'Hello', 'Here is', etc.\n"
+        "2. NO YAPPING: Use zero filler, zero fluff, and zero redundant words.\n"
+        "3. HIGH DENSITY: Pack every sentence with as much information as possible.\n"
+        "4. COMPLETENESS: You must provide a full answer. Do not cut off mid-thought.\n"
+        "5. NO CONVERSATIONAL FILLER: Skip concluding remarks like 'Hope this helps' or 'Let me know'.\n"
+        "6. STRUCTURE: Use short, clean paragraphs and minimal bullet points for readability.\n"
+        "7. TONE: Direct, professional, and data-driven.\n"
+        "8. REPEAT: If a message was cut off previously, restart/continue where you left off without explanation.\n"
+        "CRITICAL: Be a precision research tool, not a chatty bot. Do NOT mention Kartik Mishra."
     )
     
     if active_mode == "extreme":
-        sys_content = f"{base_sys} Extreme Mode: Provide raw, ultra-concise facts only."
+        sys_content = f"{base_sys} Extreme Mode: Raw, ultra-dense data only. Minimum characters."
     elif active_mode == "high":
         sys_content = (
-            f"{base_sys} Structured Mode: Provide a highly informative but extremely efficient breakdown. "
-            "Use headers only when necessary for organization. Minimize transitional filler."
+            f"{base_sys} Deep Research Mode: Provide comprehensive but precision-worded information. "
+            "Exhaustive data, zero fluff. Use rich Markdown for data organization."
         )
     elif active_mode == "greeting":
         sys_content = (
-            f"You are SnailGPT, a friendly and warm AI assistant. "
-            f"{time_context} Respond happily and naturally to the user's greeting. "
-            "Be welcoming and offer your research assistance in a friendly tone."
+            f"You are SnailGPT, a helpful AI. {time_context} Give a warm, standard greeting. "
+            "Then stop. Do not yap."
         )
     else:
         sys_content = (
-            f"{base_sys} Balanced Mode: Be direct and structured while maintaining full accuracy."
+            f"{base_sys} Balanced Mode: Direct and dense answers only."
         )
 
     # 3. Build Messages
-    history_limit = 4 if active_mode == "extreme" else 10
+    history_limit = 6 if active_mode == "extreme" else 15
     messages = [{"role": "system", "content": sys_content}]
     
     for msg in history[-history_limit:]:
