@@ -107,9 +107,14 @@
 }
 
 /* --- ANIMATION CONTROL (Base) --- */
-body[data-anim="none"] *,
-body[data-anim="none"] *::after,
-body[data-anim="none"] *::before {
+/* --- ANIMATION CONTROL (Optimized Selectors) --- */
+body[data-anim="none"] {
+    --transition-speed: 0s !important;
+}
+
+body[data-anim="none"] .page-view,
+body[data-anim="none"] .chat-bubble,
+body[data-anim="none"] #app-container {
     animation: none !important;
     transition: none !important;
 }
@@ -453,25 +458,24 @@ body {
     transition: background 1s ease;
 }
 
-/* --- DYNAMIC MESH (Full Vivid Gradient Fill) --- */
+/* --- OPTIMIZED DYNAMIC MESH --- */
 .mesh-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    top: -25%;
+    left: -25%;
+    width: 150vw;
+    height: 150vh;
     z-index: -2;
     background:
-        radial-gradient(ellipse 100% 80% at 0% 0%, var(--mesh-1, #1e1b4b) 0%, transparent 55%),
-        radial-gradient(ellipse 80% 80% at 100% 0%, var(--mesh-2, #0f172a) 0%, transparent 55%),
-        radial-gradient(ellipse 70% 60% at 50% 50%, var(--mesh-3, #2e1065) 0%, transparent 60%),
-        radial-gradient(ellipse 90% 70% at 0% 100%, var(--mesh-2, #0f172a) 0%, transparent 55%),
-        radial-gradient(ellipse 100% 80% at 100% 100%, var(--mesh-1, #1e1b4b) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 40% at 80% 30%, rgba(var(--accent-rgb, 99, 102, 241), 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 0% 0%, var(--mesh-1, #1e1b4b) 0%, transparent 50%),
+        radial-gradient(circle at 100% 0%, var(--mesh-2, #0f172a) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, var(--mesh-3, #2e1065) 0%, transparent 60%),
         var(--bg-deep, #050508);
-    filter: blur(60px);
-    opacity: 0.85;
+    filter: blur(40px);
+    opacity: 0.8;
     transition: background 1.5s ease;
+    will-change: transform;
+    pointer-events: none;
 }
 
 body[data-anim="high"] .mesh-container {
@@ -480,19 +484,15 @@ body[data-anim="high"] .mesh-container {
 
 @keyframes meshMorph {
     0% {
-        transform: scale(1) translate(0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(1);
     }
 
-    33% {
-        transform: scale(1.1) translate(50px, -30px) rotate(2deg);
-    }
-
-    66% {
-        transform: scale(1.05) translate(-40px, 40px) rotate(-1deg);
+    50% {
+        transform: translate3d(20px, -15px, 0) scale(1.05);
     }
 
     100% {
-        transform: scale(1.2) translate(0, 0) rotate(0deg);
+        transform: translate3d(0, 0, 0) scale(1.1);
     }
 }
 
@@ -619,8 +619,8 @@ body[data-current-page="profile"] #particle-canvas {
 
 /* SPA Page View Blur Refinement */
 .page-view.hidden {
-    filter: blur(100px);
-    transition: all 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+    filter: blur(20px);
+    transition: all 1s var(--fluid-fast);
 }
 
 /* Colorful Accents for Sidebar Cog */
@@ -676,8 +676,8 @@ body[data-current-page="profile"] #particle-canvas {
 .page-view.hidden {
     opacity: 0;
     pointer-events: none;
-    transform: scale(0.92);
-    filter: blur(40px);
+    transform: translate3d(0, 10px, 0) scale(0.96);
+    filter: blur(20px);
     z-index: 5;
 }
 
@@ -689,37 +689,7 @@ body[data-current-page="profile"] #particle-canvas {
     z-index: 20;
 }
 
-/* ================= HYPER-ANIMATED MESH BACKGROUND ================= */
-.mesh-container {
-    position: fixed;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background:
-        radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.15) 0%, transparent 40%),
-        radial-gradient(circle at 80% 80%, rgba(244, 63, 94, 0.1) 0%, transparent 40%),
-        radial-gradient(circle at 40% 60%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-        radial-gradient(circle at 60% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
-    animation: meshFlow 45s ease-in-out infinite alternate;
-    z-index: 1;
-    pointer-events: none;
-    filter: blur(100px);
-}
-
-@keyframes meshFlow {
-    0% {
-        transform: translate(0, 0) rotate(0deg) scale(1);
-    }
-
-    50% {
-        transform: translate(-5%, -5%) rotate(10deg) scale(1.1);
-    }
-
-    100% {
-        transform: translate(5%, 5%) rotate(-10deg) scale(1);
-    }
-}
+/* Duplicate mesh-container removed for performance */
 
 /* ================= BIG CONTENT: HOME PAGE ================= */
 .hero-content {
@@ -1328,12 +1298,17 @@ body[data-anim="minimal"] #sidebar {
     cursor: pointer;
     transition: all 0.3s var(--fluid-fast);
     margin-bottom: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 45px !important;
 }
 
 .history-item:hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
-    transform: translateX(12px) scale(1.02);
+    transform: translateX(8px) scale(1.02);
 }
 
 .history-item.active {
@@ -1341,6 +1316,43 @@ body[data-anim="minimal"] #sidebar {
     color: var(--text-primary);
     border: 1px solid var(--glass-border);
     transform: translateX(5px);
+}
+
+.delete-session-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.history-item:hover .delete-session-btn {
+    opacity: 1;
+}
+
+.delete-session-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.session-title-input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    padding: 2px 6px;
+    width: 100%;
+    outline: none;
 }
 
 .sidebar-action-container {

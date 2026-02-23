@@ -17,13 +17,18 @@ document.addEventListener('DOMContentLoaded', () => {
         ripple.addEventListener('animationend', () => ripple.remove());
     });
 
-    // --- Dynamic Background Parallax ---
+    // --- Dynamic Background Parallax (Optimized with RAF) ---
     const mesh = document.getElementById('background-mesh');
     if (mesh) {
+        let rafId = null;
         document.addEventListener('mousemove', (e) => {
-            const x = (e.clientX / window.innerWidth - 0.5) * 20;
-            const y = (e.clientY / window.innerHeight - 0.5) * 20;
-            mesh.style.transform = `translate(${x}px, ${y}px) scale(1.1)`;
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 15;
+                const y = (e.clientY / window.innerHeight - 0.5) * 15;
+                mesh.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1.1)`;
+                rafId = null;
+            });
         });
     }
 
@@ -62,17 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth section refs
     const loginSection = document.getElementById('login-section');
     const signupSection = document.getElementById('signup-section');
-    // --- Verification Logic ---
     const sendCode = (email) => {
-        if (!email) {
-            alert('Please enter an email or username first.');
-            return;
-        }
-        // This function is no longer used for actual verification in the new flow
-        // but kept for potential future use or if other parts of the app still call it.
-        // The verificationCode and codeExpiry are also removed from state.
-        console.log(`%c[EMAIL SIMULATION] Code sent to ${email}: (Verification removed)`, 'color: #4f46e5; font-weight: bold;');
-        alert(`A verification code would have been sent to ${email} (Verification removed in this demo).`);
+        if (!email) return alert('Please enter an email or username first.');
+        // Verification removed for demo
     };
 
     // --- State ---
@@ -102,8 +99,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 pages[page].classList.add('active');
             }
 
-            // Sync body dataset to allow CSS backgrounds to toggle off (e.g. particle canvas)
             document.body.dataset.currentPage = page;
+
+            // Performance: Only run particles on home page
+            if (bgNetwork) {
+                if (page === 'home') bgNetwork.start();
+                else bgNetwork.stop();
+            }
 
             if (page === 'app') initApp();
             if (page === 'profile') loadProfileData();
@@ -615,15 +617,88 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!historyList || !currentUser) return;
         const sessions = await DB.getConversations(currentUser.email);
         historyList.innerHTML = '';
-        // Show or hide Clear History button
+
         const clearBtn = document.getElementById('clear-history-btn');
         if (clearBtn) clearBtn.classList.toggle('hidden', sessions.length === 0);
 
         sessions.forEach(s => {
             const item = document.createElement('div');
             item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
-            item.innerHTML = `<i class="far fa-comment-alt"></i> <span>${s.title}</span>`;
-            item.onclick = () => loadSession(s.id);
+            item.dataset.id = s.id;
+
+            item.innerHTML = `
+                <i class="far fa-comment-alt"></i> 
+                <span class="session-title-text">${s.title}</span>
+                <input type="text" class="session-title-input hidden" value="${s.title}">
+                <button class="delete-session-btn" title="Delete conversation">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            `;
+
+            // Navigation
+            item.onclick = (e) => {
+                if (e.target.closest('.delete-session-btn')) return;
+                if (e.target.closest('.session-title-input')) return;
+                loadSession(s.id);
+            };
+
+            // Individual Delete
+            const delBtn = item.querySelector('.delete-session-btn');
+            if (delBtn) {
+                delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm("Permanently delete this research session?")) {
+                        const success = await DB.deleteConversation(s.id);
+                        if (success) {
+                            if (currentSessionId === s.id) {
+                                currentSessionId = null;
+                                chatHistory = [];
+                                chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+                                localStorage.removeItem('last_session_id');
+                            }
+                            loadSessions();
+                        }
+                    }
+                };
+            }
+
+            // Title Editing
+            const titleSpan = item.querySelector('.session-title-text');
+            const titleInput = item.querySelector('.session-title-input');
+
+            item.oncontextmenu = (e) => {
+                e.preventDefault();
+                titleSpan.classList.add('hidden');
+                titleInput.classList.remove('hidden');
+                titleInput.focus();
+                titleInput.select();
+            };
+
+            titleInput.onblur = async () => {
+                const newTitle = titleInput.value.trim();
+                if (newTitle && newTitle !== s.title) {
+                    s.title = newTitle;
+                    // Note: In a full featured app, we'd have a specific rename API.
+                    // Here we reuse saveConversation which handles updates.
+                    const fullSession = await DB.getConversation(s.id);
+                    if (fullSession) {
+                        fullSession.title = newTitle;
+                        await DB.saveConversation(currentUser.email, fullSession);
+                        titleSpan.textContent = newTitle;
+                    }
+                }
+                titleSpan.classList.remove('hidden');
+                titleInput.classList.add('hidden');
+            };
+
+            titleInput.onkeydown = (e) => {
+                if (e.key === 'Enter') titleInput.blur();
+                if (e.key === 'Escape') {
+                    titleInput.value = s.title;
+                    titleInput.blur();
+                }
+            };
+
             historyList.appendChild(item);
         });
     }

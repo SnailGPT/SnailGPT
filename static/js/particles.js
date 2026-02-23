@@ -2,22 +2,34 @@ class ParticleNetwork {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         if (!this.canvas) return;
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: true });
 
         this.particles = [];
         this.themeColor = { r: 99, g: 102, b: 241 }; // Default Indigo
         this.mouseX = null;
         this.mouseY = null;
+        this.isActive = true;
 
         // Configuration
-        this.density = 180; // More particles (lights)
-        this.connectionDistance = 85; // Lower connectivity rate (max distance for lines)
-        this.interactionRadius = 250; // Larger mouse attraction radius
-        this.baseSpeed = 0.5;
+        this.density = window.innerWidth < 768 ? 60 : 120; // More particles (lights)
+        this.connectionDistance = 80; // Lower connectivity rate (max distance for lines)
+        this.interactionRadius = 200; // Larger mouse attraction radius
+        this.baseSpeed = 0.4;
 
         this.init();
         this.bindEvents();
         this.animate();
+    }
+
+    start() {
+        if (!this.isActive) {
+            this.isActive = true;
+            this.animate();
+        }
+    }
+
+    stop() {
+        this.isActive = false;
     }
 
     init() {
@@ -37,11 +49,9 @@ class ParticleNetwork {
             x: Math.random() * this.canvas.width,
             y: Math.random() * this.canvas.height,
             z: z,
-            size: z * 2.5 + 0.5,
+            size: z * 2 + 0.5,
             vx: (Math.random() - 0.5) * this.baseSpeed * (z + 0.5),
             vy: (Math.random() - 0.5) * this.baseSpeed * (z + 0.5),
-            originX: 0,
-            originY: 0
         };
     }
 
@@ -63,13 +73,6 @@ class ParticleNetwork {
                 return;
             }
         }
-
-        const hex = styles.getPropertyValue('--primary').trim() || '#6366f1';
-        if (hex.length === 7) {
-            this.themeColor.r = parseInt(hex.slice(1, 3), 16);
-            this.themeColor.g = parseInt(hex.slice(3, 5), 16);
-            this.themeColor.b = parseInt(hex.slice(5, 7), 16);
-        }
     }
 
     bindEvents() {
@@ -89,13 +92,7 @@ class ParticleNetwork {
         });
 
         // Listen for internal theme changes robustly
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((m) => {
-                if (m.attributeName === 'class') {
-                    this.updateThemeColor();
-                }
-            });
-        });
+        const observer = new MutationObserver(() => this.updateThemeColor());
         observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
         // Trigger an initial color extraction after load
@@ -103,70 +100,73 @@ class ParticleNetwork {
     }
 
     animate() {
+        if (!this.isActive) return;
+
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Update and draw particles
-        for (let i = 0; i < this.particles.length; i++) {
+        const pCount = this.particles.length;
+        const connDistSq = this.connectionDistance * this.connectionDistance;
+        const colorPrefix = `rgba(${this.themeColor.r}, ${this.themeColor.g}, ${this.themeColor.b},`;
+
+        // Update and draw dots in one pass
+        for (let i = 0; i < pCount; i++) {
             let p = this.particles[i];
 
-            // Standard movement
             p.x += p.vx;
             p.y += p.vy;
 
-            // Boundary wrapping
             if (p.x < 0) p.x = this.canvas.width;
             if (p.x > this.canvas.width) p.x = 0;
             if (p.y < 0) p.y = this.canvas.height;
             if (p.y > this.canvas.height) p.y = 0;
 
-            // Mouse Interaction (Subtle Parallax Attraction)
             if (this.mouseX !== null && this.mouseY !== null) {
                 let dx = this.mouseX - p.x;
                 let dy = this.mouseY - p.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
+                let distSq = dx * dx + dy * dy;
 
-                if (distance < this.interactionRadius) {
-                    // Closer particles react more strongly
+                if (distSq < this.interactionRadius * this.interactionRadius) {
+                    const distance = Math.sqrt(distSq);
                     const force = (this.interactionRadius - distance) / this.interactionRadius;
-                    // Adjusted force to 0.02
-                    p.x += dx * force * 0.02 * p.z;
-                    p.y += dy * force * 0.02 * p.z;
+                    p.x += dx * force * 0.012 * p.z;
+                    p.y += dy * force * 0.012 * p.z;
                 }
             }
 
-            // Draw Point
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            // Parallax fading based on Z-depth (Brighter base opacity)
-            let dotOpacity = Math.min(1, p.z * 0.8 + 0.3);
-            this.ctx.fillStyle = `rgba(${this.themeColor.r}, ${this.themeColor.g}, ${this.themeColor.b}, ${dotOpacity})`;
+            let dotOpacity = Math.min(1, p.z * 0.7 + 0.2);
+            this.ctx.fillStyle = `${colorPrefix} ${dotOpacity})`;
             this.ctx.fill();
+        }
 
-            // Draw Constellation Connections
-            for (let j = i + 1; j < this.particles.length; j++) {
+        // Connections pass - Batching lines for performance
+        this.ctx.lineWidth = 0.5;
+        for (let i = 0; i < pCount; i++) {
+            let p = this.particles[i];
+            for (let j = i + 1; j < pCount; j++) {
                 let p2 = this.particles[j];
+
+                // Parallax plane optimization
+                if (Math.abs(p.z - p2.z) > 0.3) continue;
+
                 let dx = p.x - p2.x;
                 let dy = p.y - p2.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
+                let distSq = dx * dx + dy * dy;
 
-                if (distance < this.connectionDistance) {
-                    // Opacity fades out as distance approaches max distance
-                    let opacity = (1 - (distance / this.connectionDistance)) * 0.25;
-
-                    // Only connect if they are somewhat on a similar parallax plane to maintain 3D illusion
-                    if (Math.abs(p.z - p2.z) < 0.4) {
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(p.x, p.y);
-                        this.ctx.lineTo(p2.x, p2.y);
-                        this.ctx.strokeStyle = `rgba(${this.themeColor.r}, ${this.themeColor.g}, ${this.themeColor.b}, ${opacity})`;
-                        this.ctx.lineWidth = 0.5;
-                        this.ctx.stroke();
-                    }
+                if (distSq < connDistSq) {
+                    const distance = Math.sqrt(distSq);
+                    let opacity = (1 - (distance / this.connectionDistance)) * 0.18;
+                    this.ctx.beginPath();
+                    this.ctx.strokeStyle = `${colorPrefix} ${opacity})`;
+                    this.ctx.moveTo(p.x, p.y);
+                    this.ctx.lineTo(p2.x, p2.y);
+                    this.ctx.stroke();
                 }
             }
         }
 
-        requestAnimationFrame(this.animate.bind(this));
+        requestAnimationFrame(() => this.animate());
     }
 }
 

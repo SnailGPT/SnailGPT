@@ -11,9 +11,9 @@ const fluidBackground = (function () {
     let pointers = [{ id: -1, x: 0, y: 0, dx: 0, dy: 0, down: false, color: [0, 0, 0] }];
 
     const config = {
-        SIM_RESOLUTION: 512,
-        DYE_RESOLUTION: 4096,
-        DENSITY_DISSIPATION: 10,
+        SIM_RESOLUTION: 256,
+        DYE_RESOLUTION: 2048,
+        DENSITY_DISSIPATION: 1,
         VELOCITY_DISSIPATION: 1,
         PRESSURE_DISSIPATION: 0.8,
         PRESSURE_ITERATIONS: 20,
@@ -133,11 +133,11 @@ const fluidBackground = (function () {
 // Simple Canvas based "Liquid" for reliability if WebGL is too heavy
 const canvasFluid = (function () {
     let canvas, ctx, points = [];
-    const maxPoints = 120; // Increased for smoother trailing
+    const maxPoints = 80; // Optimized cap
 
     function init(cv) {
         canvas = cv;
-        ctx = canvas.getContext('2d');
+        ctx = canvas.getContext('2d', { alpha: true });
         resize();
         window.addEventListener('resize', resize);
         animate();
@@ -149,28 +149,33 @@ const canvasFluid = (function () {
     }
 
     function addPoint(x, y, color) {
-        points.push({ x, y, r: 40, alpha: 0.7, color: color || 'rgba(100, 100, 255, 0.5)' }); // Much bigger radius initially
+        points.push({
+            x, y,
+            r: 30,
+            alpha: 0.6,
+            color: color || 'rgba(100, 100, 255, 0.5)'
+        });
         if (points.length > maxPoints) points.shift();
     }
 
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw viscous fluid metaballs
-        points.forEach((p, i) => {
-            p.r += 0.8; // Slow expansion (honey-like)
-            p.alpha -= 0.005; // Very slow fade (persistent thick trail)
-            if (p.alpha <= 0) return;
+        // Batch drawing if possible, or use simpler draw calls
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            p.r += 1.2;
+            p.alpha -= 0.012;
 
-            const grad = ctx.createRadialGradient(p.x, p.y, p.r * 0.1, p.x, p.y, p.r);
-            grad.addColorStop(0, p.color.replace('0.5', p.alpha.toFixed(3)));
-            grad.addColorStop(1, 'transparent');
+            if (p.alpha <= 0) continue;
 
-            ctx.fillStyle = grad;
             ctx.beginPath();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
             ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
+        ctx.globalAlpha = 1.0;
 
         points = points.filter(p => p.alpha > 0);
         requestAnimationFrame(animate);
