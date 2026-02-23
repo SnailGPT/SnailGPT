@@ -3,93 +3,115 @@
 // DB.js — SnailGPT Data Layer
 //
 // User ACCOUNTS → stored server-side (SQLite via Flask API)
-// Current SESSION → localStorage (which user is logged in now)
-// Chat HISTORY   → localStorage (device-specific cache)
+// Security      → JWT (stateless, cross-device)
+// Cache         → localStorage (device-specific)
 // -------------------------------------------------------
 
 const API = '/api';
 
 const DB = {
-    // ---- Session (local only – who is logged in on THIS device) ----
+    // ---- Session & Token Management ----
+    getToken: () => localStorage.getItem('snail_token'),
+    setToken: (token) => localStorage.setItem('snail_token', token),
+    clearToken: () => localStorage.removeItem('snail_token'),
+
     getCurrentUser: () => JSON.parse(localStorage.getItem('snail_user')),
     setCurrentUser: (user) => localStorage.setItem('snail_user', JSON.stringify(user)),
-    logout: () => localStorage.removeItem('snail_user'),
+
+    logout: () => {
+        DB.clearToken();
+        localStorage.removeItem('snail_user');
+    },
+
+    /**
+     * Helper for authenticated requests.
+     */
+    getAuthHeader: () => {
+        const token = DB.getToken();
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    },
+
+    /**
+     * Generic API handler with token support.
+     */
+    request: async (endpoint, options = {}) => {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...DB.getAuthHeader(),
+            ...(options.headers || {})
+        };
+
+        const res = await fetch(`${API}${endpoint}`, {
+            ...options,
+            headers
+        });
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            throw new Error(`Server error: ${text.substring(0, 100)}...`);
+        }
+
+        if (!res.ok) throw new Error(data.error || 'Request failed.');
+        return data;
+    },
 
     // ---- Account API (cross-device) ----
 
-    /**
-     * Register a new user.
-     * Resolves with the created user object on success.
-     * Rejects with an Error whose message can be shown in the UI.
-     */
     registerUser: async (email, username, password) => {
-        const res = await fetch(`${API}/register`, {
+        const data = await DB.request('/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, username, password })
         });
-
-        let data;
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            data = await res.json();
-        } else {
-            const text = await res.text();
-            throw new Error(`Server error: ${text.substring(0, 100)}...`);
-        }
-
-        if (!res.ok) throw new Error(data.error || 'Registration failed.');
-        return data; // { email, username, recoveryCode }
+        if (data.token) DB.setToken(data.token);
+        return data.user;
     },
 
-    /**
-     * Login with email/username + password.
-     * Resolves with the user object on success.
-     * Rejects with an Error whose message can be shown in the UI.
-     */
     loginUser: async (id, password) => {
-        const res = await fetch(`${API}/login`, {
+        const data = await DB.request('/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, password })
         });
-
-        let data;
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            data = await res.json();
-        } else {
-            const text = await res.text();
-            throw new Error(`Server error: ${text.substring(0, 100)}...`);
-        }
-
-        if (!res.ok) throw new Error(data.error || 'Login failed.');
-        return data; // { email, username, recoveryCode, avatarUrl }
+        if (data.token) DB.setToken(data.token);
+        return data.user;
     },
 
-    /**
-     * Update user profile.
-     * payload: { email, newUsername?, newPassword?, recoveryCode?, avatarUrl? }
-     * Resolves with the updated user object.
-     */
+    verifyToken: async () => {
+        if (!DB.getToken()) return null;
+        try {
+            const data = await DB.request('/verify-token', { method: 'GET' });
+            return data.user;
+        } catch (e) {
+            DB.logout();
+            return null;
+        }
+    },
+
     updateUser: async (payload) => {
-        const res = await fetch(`${API}/user/update`, {
+        const data = await DB.request('/user/update', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        return data.user;
+    },
 
-        let data;
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            data = await res.json();
-        } else {
-            const text = await res.text();
-            throw new Error(`Server error: ${text.substring(0, 100)}...`);
-        }
+    // ---- Forgot Password Flow ----
 
-        if (!res.ok) throw new Error(data.error || 'Update failed.');
-        return data; // { email, username, recoveryCode, avatarUrl }
+    forgotPassword: async (email) => {
+        return await DB.request('/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+    },
+
+    resetPassword: async (email, code, password) => {
+        return await DB.request('/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, code, password })
+        });
     },
 
     // ---- Conversations (local cache – per device) ----

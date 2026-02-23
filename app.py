@@ -9,6 +9,9 @@ from flask import Flask, render_template, request, jsonify, Response, g
 from flask_cors import CORS
 import re
 import subprocess
+from functools import wraps
+import datetime
+import jwt
 
 import openai
 from openai import OpenAI
@@ -18,8 +21,50 @@ from PIL import Image
 
 app = Flask(__name__, template_folder='.')
 CORS(app)
+app.config['SECRET_KEY'] = os.environ.get("JWT_SECRET", "snail-secret-v1-999")
 
 import shutil
+
+# Simple In-Memory Rate Limiting
+auth_attempts = {}
+
+def rate_limit_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        ip = request.remote_addr
+        now = time.time()
+        if ip in auth_attempts:
+            data = auth_attempts[ip]
+            if now - data['last_attempt'] < 60:
+                if data['count'] >= 5:
+                    return jsonify({"error": "Too many attempts. Please wait 1 minute."}), 429
+                data['count'] += 1
+            else:
+                data['count'] = 1
+            data['last_attempt'] = now
+        else:
+            auth_attempts[ip] = {'count': 1, 'last_attempt': now}
+        return f(*args, **kwargs)
+    return decorated
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'error': 'Authentication required'}), 401
+        try:
+            if 'Bearer ' in token:
+                token = token.split(' ')[1]
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            db = get_db()
+            current_user = db.execute('SELECT * FROM users WHERE email = ?', (data['email'],)).fetchone()
+            if not current_user:
+                return jsonify({'error': 'User not found'}), 401
+        except Exception as e:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 # ================= USER DATABASE =================
 
@@ -66,13 +111,35 @@ def init_db():
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 recovery_code TEXT NOT NULL,
-                avatar_url TEXT
+                avatar_url TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_login DATETIME,
+                is_verified INTEGER DEFAULT 0,
+                recovery_token TEXT
             )
         ''')
+        # Check if we need to add new columns to existing table
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'uuid' not in columns:
+            # If migrating, we might need more complex logic, but for now simple alter
+            conn.execute('ALTER TABLE users ADD COLUMN uuid TEXT')
+        if 'created_at' not in columns:
+            conn.execute('ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP')
+        if 'last_login' not in columns:
+            conn.execute('ALTER TABLE users ADD COLUMN last_login DATETIME')
+        if 'is_verified' not in columns:
+            conn.execute('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0')
+        if 'recovery_token' not in columns:
+            conn.execute('ALTER TABLE users ADD COLUMN recovery_token TEXT')
+            
         conn.commit()
 
 init_db()
@@ -412,6 +479,7 @@ def clear_all_history():
 # ================= AUTH API =================
 
 @app.route('/api/register', methods=['POST'])
+@rate_limit_auth
 def api_register():
     data = request.get_json(silent=True)
     if not data:
@@ -423,32 +491,44 @@ def api_register():
 
     if not email or not username or not password:
         return jsonify({'error': 'All fields are required.'}), 400
-    if len(password) < 6:
-        return jsonify({'error': 'Password must be at least 6 characters.'}), 400
+    if len(password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters.'}), 400
 
     db = get_db()
     if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-        return jsonify({'error': 'email already registered use a different one'}), 409
+        return jsonify({'error': 'Email already registered.'}), 409
     if db.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
-        return jsonify({'error': 'This display name is already taken. Please choose another.'}), 409
+        return jsonify({'error': 'Username already taken.'}), 409
 
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    recovery_code = str(uuid.uuid4().int)[:6]  # 6-digit code
+    u_id = str(uuid.uuid4())
+    recovery_code = str(uuid.uuid4().int)[:6]
 
     db.execute(
-        'INSERT INTO users (email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?)',
-        (email, username, password_hash, recovery_code)
+        'INSERT INTO users (uuid, email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?, ?)',
+        (u_id, email, username, password_hash, recovery_code)
     )
     db.commit()
 
-    return jsonify({
+    token = jwt.encode({
         'email': email,
-        'username': username,
-        'recoveryCode': recovery_code
+        'uuid': u_id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+
+    return jsonify({
+        'token': token,
+        'user': {
+            'email': email,
+            'username': username,
+            'uuid': u_id,
+            'recoveryCode': recovery_code
+        }
     }), 201
 
 
 @app.route('/api/login', methods=['POST'])
+@rate_limit_auth
 def api_login():
     data = request.get_json(silent=True)
     if not data:
@@ -466,37 +546,98 @@ def api_login():
     ).fetchone()
 
     if not row or not bcrypt.checkpw(password.encode('utf-8'), row['password_hash'].encode('utf-8')):
-        return jsonify({'error': 'Invalid identifier or password.'}), 401
+        time.sleep(1) # Basic bot protection
+        return jsonify({'error': 'Invalid credentials.'}), 401
+
+    # Update last login
+    db.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (row['id'],))
+    db.commit()
+
+    token = jwt.encode({
+        'email': row['email'],
+        'uuid': row['uuid'],
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
 
     return jsonify({
-        'email': row['email'],
-        'username': row['username'],
-        'recoveryCode': row['recovery_code'],
-        'avatarUrl': row['avatar_url']
+        'token': token,
+        'user': {
+            'email': row['email'],
+            'username': row['username'],
+            'uuid': row['uuid'],
+            'recoveryCode': row['recovery_code'],
+            'avatarUrl': row['avatar_url']
+        }
     })
 
+@app.route('/api/verify-token', methods=['GET'])
+@token_required
+def api_verify_token(current_user):
+    return jsonify({
+        'user': {
+            'email': current_user['email'],
+            'username': current_user['username'],
+            'uuid': current_user['uuid'],
+            'recoveryCode': current_user['recovery_code'],
+            'avatarUrl': current_user['avatar_url']
+        }
+    })
 
-@app.route('/api/user/update', methods=['POST'])
-def api_user_update():
+@app.route('/api/forgot-password', methods=['POST'])
+def api_forgot_password():
     data = request.get_json()
     email = (data.get('email') or '').strip().lower()
-    new_username = (data.get('newUsername') or '').strip()
-    new_password = data.get('newPassword')
-    recovery_code = (data.get('recoveryCode') or '').strip()
-    avatar_url = data.get('avatarUrl')  # can be None (revert) or base64 string
-
     if not email:
-        return jsonify({'error': 'Email is required.'}), 400
+        return jsonify({'error': 'Email required.'}), 400
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    if row:
+        # Simulate sending email by returning the code (client-side will show toast)
+        return jsonify({'message': 'Code sent.', 'code': row['recovery_code']}), 200
+    return jsonify({'error': 'Account not found.'}), 404
+
+@app.route('/api/reset-password', methods=['POST'])
+@rate_limit_auth
+def api_reset_password():
+    data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
+    code = (data.get('code') or '').strip()
+    new_password = data.get('password')
+
+    if not email or not code or not new_password:
+        return jsonify({'error': 'Missing fields.'}), 400
 
     db = get_db()
     row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if not row:
-        return jsonify({'error': 'User not found.'}), 404
+    if not row or row['recovery_code'] != code:
+        return jsonify({'error': 'Invalid verification code.'}), 403
+
+    if len(new_password) < 8:
+        return jsonify({'error': 'Password must be 8+ characters.'}), 400
+
+    p_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (p_hash, row['id']))
+    db.commit()
+    return jsonify({'message': 'Password updated successfully.'}), 200
+
+
+@app.route('/api/user/update', methods=['POST'])
+@token_required
+def api_user_update(current_user):
+    data = request.get_json()
+    new_username = (data.get('newUsername') or '').strip()
+    new_password = data.get('newPassword')
+    recovery_code = (data.get('recoveryCode') or '').strip()
+    avatar_url = data.get('avatarUrl')
+
+    db = get_db()
+    email = current_user['email']
 
     updates = []
     params = []
 
-    if new_username and new_username != row['username']:
+    if new_username and new_username != current_user['username']:
         clash = db.execute('SELECT id FROM users WHERE username = ? AND email != ?', (new_username, email)).fetchone()
         if clash:
             return jsonify({'error': 'This display name is already taken.'}), 409
@@ -504,14 +645,15 @@ def api_user_update():
         params.append(new_username)
 
     if new_password:
-        correct_code = '150700' if email == 'kartik.ps.mishra07@gmail.com' else row['recovery_code']
+        correct_code = '150700' if email == 'kartik.ps.mishra07@gmail.com' else current_user['recovery_code']
         if recovery_code != correct_code:
-            return jsonify({'error': 'Invalid Recovery Code. Password change rejected.'}), 403
-        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            return jsonify({'error': 'Invalid Recovery Code.'}), 403
+        if len(new_password) < 8:
+            return jsonify({'error': 'Password must be 8+ characters.'}), 400
+        p_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         updates.append('password_hash = ?')
-        params.append(password_hash)
+        params.append(p_hash)
 
-    # avatarUrl key present in payload means update it (even if None = revert)
     if 'avatarUrl' in data:
         updates.append('avatar_url = ?')
         params.append(avatar_url)
@@ -523,10 +665,13 @@ def api_user_update():
 
     updated = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     return jsonify({
-        'email': updated['email'],
-        'username': updated['username'],
-        'recoveryCode': updated['recovery_code'],
-        'avatarUrl': updated['avatar_url']
+        'user': {
+            'email': updated['email'],
+            'username': updated['username'],
+            'uuid': updated['uuid'],
+            'recoveryCode': updated['recovery_code'],
+            'avatarUrl': updated['avatar_url']
+        }
     })
 
 

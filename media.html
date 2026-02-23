@@ -13,101 +13,87 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="static/css/style.css">
     <style>
-        /* Media Specific Overrides */
-        #media-gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 24px;
-            padding: 40px;
-            width: 100%;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .media-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-            transition: all 0.4s ease;
-            position: relative;
-            aspect-ratio: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .media-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-            border-color: var(--primary);
-        }
-
-        .media-empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 60px;
-            color: var(--text-muted);
-            grid-column: 1 / -1;
-        }
-
-        .media-empty-state i {
-            font-size: 64px;
-            margin-bottom: 24px;
-            opacity: 0.3;
-        }
-
+        /* Media Specific Overrides - Matching Casual Colorful */
         .logo-media {
-            background: linear-gradient(135deg, #FF0080, #7928CA);
-            /* Pink/Purple for Media */
+            font-weight: 800;
+            background: var(--primary-gradient);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .media-card {
-            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             overflow: hidden;
-        }
-
-        .media-card img {
-            transition: transform 0.3s ease;
-        }
-
-        .media-card:hover img {
-            transform: scale(1.05);
-        }
-
-        .download-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
+            transition: all 0.4s var(--spring-bouncy);
+            position: relative;
+            aspect-ratio: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .media-card:hover .download-overlay {
-            opacity: 1;
+        .media-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            border-color: var(--primary);
+        }
+
+        .chat-bubble.ai .message-content {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 20px;
+        }
+
+        .chat-bubble.user .message-content {
+            background: var(--primary-gradient);
+            border-radius: 24px;
+            padding: 15px 25px;
+        }
+
+        .welcome-message h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+
+        #generate-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s var(--spring-bouncy);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #generate-btn:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 0 20px var(--accent-glow-soft);
         }
 
         .download-btn {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+            background: white;
+            color: black;
             border: none;
             padding: 12px 24px;
-            border-radius: 12px;
+            border-radius: 30px;
             cursor: pointer;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -116,195 +102,42 @@
 
         .download-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        .welcome-message {
-            text-align: center;
-            padding: 100px 40px;
-            color: var(--text-muted);
-            transition: opacity 0.5s ease;
-        }
-
-        .welcome-message h1 {
-            font-size: 32px;
-            font-weight: 600;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .sidebar-footer {
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .sidebar-action-btn.danger {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            padding: 12px 16px;
-            border-radius: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar-action-btn.danger:hover {
-            background: rgba(239, 68, 68, 0.2);
-            transform: scale(1.02);
-        }
-
-        /* Chat Messages Styling */
-        #chat-messages {
-            padding: 40px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .chat-bubble {
-            display: flex;
-            gap: 28px;
-            margin-bottom: 32px;
-            opacity: 1;
-        }
-
-        .chat-bubble.user {
-            flex-direction: row-reverse;
-        }
-
-        .chat-bubble.ai {
-            flex-direction: row;
-        }
-
-        .message-wrap {
-            max-width: 70%;
-            flex: 1;
-        }
-
-        /* Typing Indicator */
-        .typing-indicator {
-            display: flex;
-            gap: 6px;
-            padding: 20px 28px;
-        }
-
-        .typing-indicator .dot {
-            width: 10px;
-            height: 10px;
-            background: var(--primary);
-            border-radius: 50%;
-            animation: typingBounce 1.4s infinite ease-in-out;
-        }
-
-        .typing-indicator .dot:nth-child(1) {
-            animation-delay: 0s;
-        }
-
-        .typing-indicator .dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-indicator .dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typingBounce {
-
-            0%,
-            60%,
-            100% {
-                transform: translateY(0);
-                opacity: 0.7;
-            }
-
-            30% {
-                transform: translateY(-15px);
-                opacity: 1;
-            }
-        }
-
-        /* Enhanced AI Message Styling */
-        .chat-bubble.ai .message-content {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.05));
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-left: 4px solid var(--primary);
-            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.15);
-        }
-
-        .chat-bubble.ai .message-content p {
-            margin: 0 0 12px 0;
-            color: #e2e8f0;
-            font-weight: 500;
-        }
-
-        /* New Generation Button */
-        .sidebar-header {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .new-gen-btn {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            color: var(--primary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            transition: all 0.3s var(--spring-bouncy);
-            flex-shrink: 0;
-        }
-
-        .new-gen-btn:hover {
             background: var(--primary);
             color: white;
-            transform: rotate(90deg) scale(1.1);
-            box-shadow: 0 8px 20px rgba(var(--primary), 0.3);
         }
     </style>
 </head>
 
-<body class="theme-midnight" data-anim="high">
+<body class="theme-midnight">
     <canvas id="bg-canvas"></canvas>
     <div class="mesh-container" id="background-mesh"></div>
 
     <div id="app-container">
         <!-- Sidebar -->
         <aside id="sidebar">
-            <div class="sidebar-header">
-                <button class="new-chat-btn" onclick="window.location.href='index.html'">
-                    <i class="fas fa-comment-alt"></i>
+            <div class="sidebar-header" style="padding: 25px;">
+                <button class="primary-btn" onclick="window.location.href='index.html'"
+                    style="padding: 12px 20px; font-size: 0.9rem; width: 100%;">
+                    <i class="fas fa-arrow-left"></i>
                     <span>Back to Chat</span>
-                </button>
-                <button class="new-gen-btn" id="new-generation-btn" title="New Generation">
-                    <i class="fas fa-plus"></i>
                 </button>
             </div>
 
             <div class="history-section">
-                <div class="history-label">Recent Generations</div>
+                <div class="history-label"
+                    style="padding-left: 25px; margin-bottom: 15px; opacity: 0.6; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
+                    Recent Art</div>
                 <div class="history-list" id="media-history">
                     <!-- Generation history will appear here -->
                 </div>
             </div>
 
             <!-- Clear History Button -->
-            <div class="sidebar-footer">
-                <button id="clear-media-history" class="sidebar-action-btn danger" style="width: 100%;">
+            <div class="sidebar-footer" style="padding: 25px;">
+                <button id="clear-media-history" class="sidebar-action-btn danger"
+                    style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.1); color: #ef4444; cursor: pointer;">
                     <i class="fas fa-trash-alt"></i>
-                    <span>Clear History</span>
+                    <span>Clear Gallery</span>
                 </button>
             </div>
         </aside>
@@ -321,6 +154,7 @@
                 <div id="chat-messages">
                     <div class="welcome-message">
                         <h1>What would you like to create?</h1>
+                        <p style="opacity: 0.6;">Enter a prompt below to generate AI art.</p>
                     </div>
                 </div>
             </div>
@@ -342,6 +176,20 @@
     <script type="module" src="static/js/background.js"></script>
     <script type="module">
         import CONFIG from './static/js/config.js';
+        import DB from './static/js/db.js';
+
+        // --- Session Verification ---
+        async function verifySession() {
+            const user = await DB.verifyToken();
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            // User verified, proced with init
+            renderMediaHistory();
+        }
+
+        verifySession();
 
         // Download Function
         window.downloadImage = function (url, prompt) {
@@ -377,10 +225,6 @@
             const bubble = document.createElement('div');
             bubble.classList.add('chat-bubble', sender);
 
-            const avatar = document.createElement('div');
-            avatar.classList.add('avatar');
-            avatar.innerHTML = sender === 'ai' ? '🐌' : '👤';
-
             const wrap = document.createElement('div');
             wrap.classList.add('message-wrap');
 
@@ -390,10 +234,10 @@
             if (sender === 'ai' && imageUrl) {
                 // AI response with image
                 messageContent.innerHTML = `
-                    <p>${content}</p>
-                    <div class="media-card" style="margin-top: 16px; max-width: 400px;">
-                        <img src="${imageUrl}" alt="Generated" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
-                        <div class="download-overlay">
+                    <p style="margin-bottom: 15px;">${content}</p>
+                    <div class="media-card" style="max-width: 500px; margin: 0 auto;">
+                        <img src="${imageUrl}" alt="Generated" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="download-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; ">
                             <button class="download-btn" onclick="downloadImage('${imageUrl}', 'generated_image')">
                                 <i class="fas fa-download"></i>
                                 Download
@@ -401,12 +245,16 @@
                         </div>
                     </div>
                 `;
+                // Add hover effect via JS since it's dynamic
+                const card = messageContent.querySelector('.media-card');
+                const overlay = messageContent.querySelector('.download-overlay');
+                card.onmouseenter = () => overlay.style.opacity = '1';
+                card.onmouseleave = () => overlay.style.opacity = '0';
             } else {
                 messageContent.textContent = content;
             }
 
             wrap.appendChild(messageContent);
-            bubble.appendChild(avatar);
             bubble.appendChild(wrap);
             chatMessages.appendChild(bubble);
 
@@ -476,18 +324,21 @@
             typingBubble.classList.add('chat-bubble', 'ai');
             typingBubble.id = 'typing-bubble';
             typingBubble.innerHTML = `
-                <div class="avatar">🐌</div>
                 <div class="message-wrap">
                     <div class="message-content">
-                        <div class="typing-indicator">
-                            <div class="dot"></div>
-                            <div class="dot"></div>
-                            <div class="dot"></div>
+                        <div class="typing-indicator" style="display: flex; gap: 5px;">
+                            <div class="dot" style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; opacity: 0.6; animation: typing 1s infinite alternate;"></div>
+                            <div class="dot" style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; opacity: 0.6; animation: typing 1s infinite alternate 0.2s;"></div>
+                            <div class="dot" style="width: 8px; height: 8px; background: var(--primary); border-radius: 50%; opacity: 0.6; animation: typing 1s infinite alternate 0.4s;"></div>
                         </div>
                     </div>
                 </div>
             `;
             chatMessages.appendChild(typingBubble);
+
+            const style = document.createElement('style');
+            style.textContent = `@keyframes typing { from { transform: translateY(0); opacity: 0.3; } to { transform: translateY(-10px); opacity: 1; } }`;
+            document.head.appendChild(style);
 
             const chatWindow = document.getElementById('chat-window');
             chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
@@ -513,7 +364,6 @@
 
                 const blob = await response.blob();
                 if (blob.type.includes('application/json')) {
-                    // Sometimes Hugging Face returns successful status but JSON error (e.g. model loading)
                     const text = await blob.text();
                     const json = JSON.parse(text);
                     throw new Error(json.error || 'Model is still loading, try again in 30s');
@@ -521,7 +371,7 @@
                 const imageUrl = URL.createObjectURL(blob);
 
                 if (typingBubble) typingBubble.remove();
-                appendMessage('ai', `Here's your image!`, imageUrl);
+                appendMessage('ai', `Creative masterpiece complete!`, imageUrl);
                 saveMediaHistory(prompt, imageUrl);
 
             } catch (error) {
@@ -540,9 +390,9 @@
         const clearBtn = document.getElementById('clear-media-history');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
-                if (confirm('Clear all generation history?')) {
+                if (confirm('Clear all art from your gallery?')) {
                     localStorage.removeItem('snail-media-history');
-                    chatMessages.innerHTML = `<div class="welcome-message"><h1>What would you like to create?</h1></div>`;
+                    chatMessages.innerHTML = `<div class="welcome-message"><h1>What would you like to create?</h1><p style="opacity: 0.6;">Enter a prompt below to generate AI art.</p></div>`;
                     renderMediaHistory();
                 }
             });

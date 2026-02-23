@@ -32,6 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth section refs
     const loginSection = document.getElementById('login-section');
     const signupSection = document.getElementById('signup-section');
+    const forgotSection = document.getElementById('forgot-section');
+
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotEmailInput = document.getElementById('forgot-email');
     // --- Verification Logic ---
     const sendCode = (email) => {
         if (!email) {
@@ -79,12 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page === 'profile') loadProfileData();
         },
         toggleAuth: (mode) => {
+            loginSection.classList.add('hidden');
+            signupSection.classList.add('hidden');
+            forgotSection.classList.add('hidden');
+
             if (mode === 'login') {
                 loginSection.classList.remove('hidden');
-                signupSection.classList.add('hidden');
-            } else {
-                loginSection.classList.add('hidden');
+            } else if (mode === 'signup') {
                 signupSection.classList.remove('hidden');
+            } else if (mode === 'forgot') {
+                forgotSection.classList.remove('hidden');
             }
         }
     };
@@ -113,6 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBackHome = document.getElementById('auth-back-home');
     const btnSwitchSignup = document.getElementById('switch-to-signup-btn');
     const btnSwitchLogin = document.getElementById('switch-to-login-btn');
+    const btnGotoForgot = document.getElementById('goto-forgot-btn');
+    const btnBackToLoginFromForgot = document.getElementById('switch-to-login-from-forgot');
 
     if (btnSignup) btnSignup.onclick = () => {
         router.navigate('auth');
@@ -123,12 +133,10 @@ document.addEventListener('DOMContentLoaded', () => {
         router.toggleAuth('login');
     };
     if (btnBackHome) btnBackHome.onclick = () => router.navigate('home');
-    if (btnSwitchSignup) btnSwitchSignup.onclick = () => {
-        router.toggleAuth('signup');
-    };
-    if (btnSwitchLogin) btnSwitchLogin.onclick = () => {
-        router.toggleAuth('login');
-    };
+    if (btnSwitchSignup) btnSwitchSignup.onclick = () => router.toggleAuth('signup');
+    if (btnSwitchLogin) btnSwitchLogin.onclick = () => router.toggleAuth('login');
+    if (btnGotoForgot) btnGotoForgot.onclick = () => router.toggleAuth('forgot');
+    if (btnBackToLoginFromForgot) btnBackToLoginFromForgot.onclick = () => router.toggleAuth('login');
 
     // Signup Submit
     if (signupForm) signupForm.onsubmit = async (e) => {
@@ -164,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('login-password').value;
 
         const submitBtn = loginForm.querySelector('button[type=submit]');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Logging in…'; }
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...'; }
 
         try {
             const savedUser = await DB.loginUser(id, password);
@@ -175,6 +183,38 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(err.message);
         } finally {
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Login'; }
+        }
+    };
+
+    // Forgot Password Flow
+    if (forgotForm) forgotForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = forgotEmailInput.value.trim();
+        const submitBtn = forgotForm.querySelector('button[type=submit]');
+
+        if (!email) return;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        try {
+            const res = await DB.forgotPassword(email);
+            // Simulate receiving email by showing the code in a toast
+            sendSimulatedEmail(res.code);
+
+            const newPassword = prompt("A recovery code has been sent to your 'email'.\nEnter the 6-Digit Code:");
+            if (newPassword) {
+                const pass = prompt("Enter your NEW Password (min 8 characters):");
+                if (pass) {
+                    await DB.resetPassword(email, newPassword, pass);
+                    alert("Password reset successful! Please login.");
+                    router.toggleAuth('login');
+                }
+            }
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send Code';
         }
     };
 
@@ -756,9 +796,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (navImg) navImg.onclick = () => window.location.href = 'media.html';
 
     // --- Init ---
-    if (currentUser) {
-        router.navigate('app');
-    } else {
-        router.navigate('home');
+    async function initSession() {
+        const user = await DB.verifyToken();
+        if (user) {
+            currentUser = user;
+            DB.setCurrentUser(user);
+            router.navigate('app');
+        } else {
+            router.navigate('home');
+        }
     }
+
+    initSession();
 });

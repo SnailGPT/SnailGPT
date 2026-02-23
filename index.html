@@ -41,26 +41,17 @@
                 </div>
             </div>
 
-            <!-- Premium Logo Wordmark -->
+            <!-- Original Casual Wordmark -->
             <div class="hero-wordmark">
-                <div class="hero-badge">AI Research Assistant</div>
-                <h1 class="hero-logo-text">Snail<span class="logo-accent">GPT</span></h1>
-                <p class="hero-tagline">Precision intelligence for the curious mind.</p>
+                <h1 class="hero-logo-text">SnailGPT</h1>
+                <p class="hero-tagline">Smart AI Research Assistant</p>
             </div>
 
             <div class="hero-actions">
                 <button id="nav-signup-btn" class="primary-btn">Sign Up</button>
                 <button id="nav-login-btn" class="primary-btn">Log In</button>
             </div>
-
-            <!-- Feature tag row -->
-            <div class="hero-tags">
-                <span class="hero-tag"><i class="fas fa-bolt"></i> Streaming Responses</span>
-                <span class="hero-tag"><i class="fas fa-lock"></i> Private Sessions</span>
-                <span class="hero-tag"><i class="fas fa-palette"></i> Custom Themes</span>
-            </div>
         </div>
-        <div class="hero-bg-overlay"></div>
     </div>
 
     <!-- 2. AUTH PAGE (Signup & Login) -->
@@ -73,12 +64,18 @@
                 <h2>Welcome Back</h2>
                 <form id="login-form">
                     <div class="input-group">
-                        <label class="tag-label">Identifier</label>
-                        <input type="text" id="login-id" required placeholder="Email or Username">
+                        <label class="tag-label">Email or Username</label>
+                        <input type="text" id="login-id" required placeholder="name@example.com">
                     </div>
                     <div class="input-group">
                         <label class="tag-label">Password</label>
                         <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <div class="auth-options">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="login-remember"> Remember Me
+                        </label>
+                        <span id="goto-forgot-btn" class="text-link">Forgot Password?</span>
                     </div>
                     <button type="submit" id="login-submit-btn" class="primary-btn">Login</button>
                     <p class="auth-switch">New researcher? <span id="switch-to-signup-btn">Sign Up</span></p>
@@ -90,8 +87,8 @@
                 <h2>Create Account</h2>
                 <form id="signup-form">
                     <div class="input-group">
-                        <label class="tag-label">Name</label>
-                        <input type="text" id="signup-username" required placeholder="Snail Researcher">
+                        <label class="tag-label">Username</label>
+                        <input type="text" id="signup-username" required placeholder="e.g. SnailExplorer">
                     </div>
                     <div class="input-group">
                         <label class="tag-label">Email</label>
@@ -107,6 +104,20 @@
                     </div>
                     <button type="submit" id="signup-submit-btn" class="primary-btn">Sign Up</button>
                     <p class="auth-switch">Already recorded? <span id="switch-to-login-btn">Login</span></p>
+                </form>
+            </div>
+
+            <!-- Forgot Password Card -->
+            <div id="forgot-section" class="auth-card hidden">
+                <h2>Reset Password</h2>
+                <p>Enter your email to receive a recovery code.</p>
+                <form id="forgot-form">
+                    <div class="input-group">
+                        <label class="tag-label">Email</label>
+                        <input type="email" id="forgot-email" required placeholder="name@example.com">
+                    </div>
+                    <button type="submit" id="forgot-submit-btn" class="primary-btn">Send Code</button>
+                    <p class="auth-switch">Remembered? <span id="switch-to-login-from-forgot">Back to Login</span></p>
                 </form>
             </div>
         </div>
