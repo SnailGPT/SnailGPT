@@ -221,7 +221,25 @@
                             style="font-family:'Orbitron', sans-serif; font-weight:900; background:var(--primary-gradient); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-size:1.5rem; letter-spacing:1px;">
                             SNAIL<span>GPT</span></div>
                     </div>
-                    <div class="mode-badge">VERCEL-SECURE</div>
+                    <div class="header-right" style="display: flex; align-items: center; gap: 10px;">
+                        <div class="custom-dropdown" id="model-dropdown" style="margin: 0; min-width: 140px;">
+                            <div class="dropdown-selected"
+                                style="padding: 5px 10px; font-size: 0.8rem; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                                <span><i class="fas fa-brain"></i> Llama 3 70B</span><i class="fas fa-chevron-down"
+                                    style="margin-left:5px; font-size:0.7rem;"></i>
+                            </div>
+                            <div class="dropdown-options"
+                                style="right: 0; left: auto; top: calc(100% + 5px); min-width: 160px;">
+                                <div class="option" data-model="meta-llama/Llama-3.1-70B-Instruct"
+                                    data-label="Llama 3 70B"><i class="fas fa-brain"></i> Llama 3 70B</div>
+                                <div class="option" data-model="mistralai/Mixtral-8x7B-Instruct-v0.1"
+                                    data-label="Mixtral 8x7B"><i class="fas fa-bolt"></i> Mixtral 8x7B</div>
+                                <div class="option" data-model="Qwen/Qwen2.5-Coder-32B-Instruct"
+                                    data-label="Qwen Coder"><i class="fas fa-code"></i> Qwen Coder</div>
+                            </div>
+                        </div>
+                        <div class="mode-badge">VERCEL-SECURE</div>
+                    </div>
                 </header>
                 <div id="chat-window">
                     <div id="chat-messages">
@@ -239,11 +257,31 @@
                     <div class="input-wrapper">
                         <button class="extra-action-btn" id="plus-btn"><i class="fas fa-plus"></i></button>
                         <div class="plus-menu hidden" id="plus-menu">
-                            <div class="menu-item" id="nav-image-gen"><i class="fas fa-image"></i> <span>Generate
-                                    Image</span></div>
+                            <div class="menu-item" id="action-upload-doc"><i class="fas fa-file-upload"></i>
+                                <span>Upload Document</span></div>
+                            <div class="menu-item" id="action-export-chat"><i class="fas fa-file-export"></i>
+                                <span>Export Session</span></div>
+                            <div class="menu-item" id="action-web-search"><i class="fas fa-globe"></i> <span
+                                    id="web-search-text">Web Search: OFF</span></div>
                         </div>
+
+                        <!-- Hidden file input for document analysis -->
+                        <input type="file" id="doc-upload-input" accept=".txt,.csv,.json,.md,.js,.py,.html,.css"
+                            style="display: none;">
+
+                        <!-- Attached document indicator (hidden by default) -->
+                        <div id="attached-doc-indicator" class="hidden"
+                            style="position: absolute; top: -35px; left: 10px; background: rgba(18, 19, 26, 0.9); padding: 5px 12px; border-radius: 6px; border: 1px solid var(--glass-border); font-size: 0.8rem; display: flex; align-items: center; gap: 8px; backdrop-filter: blur(10px);">
+                            <i class="fas fa-file-alt" style="color: var(--primary);"></i> <span id="attached-doc-name"
+                                style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">doc.txt</span>
+                            <button id="remove-doc-btn"
+                                style="background:none;border:none;color:var(--text-muted);cursor:pointer;"><i
+                                    class="fas fa-times"></i></button>
+                        </div>
+
                         <textarea id="user-input" placeholder="Enter query..." rows="1"></textarea>
-                        <div class="input-actions">
+                        <div class="input-actions" style="display: flex; gap: 5px;">
+                            <button id="voice-btn" title="Voice Input"><i class="fas fa-microphone"></i></button>
                             <button id="stop-btn" class="hidden"><i class="fas fa-stop"></i></button>
                             <button id="send-btn"><i class="fas fa-arrow-up"></i></button>
                         </div>
