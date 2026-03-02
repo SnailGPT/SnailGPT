@@ -444,24 +444,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const popupUserInitial = document.getElementById('popup-user-initial');
     const popupUserName = document.getElementById('popup-user-name');
 
+    // ---- Sidebar View Switching (Settings Cog) ----
+    const mainView = document.getElementById('sidebar-main-view');
+    const settingsView = document.getElementById('sidebar-settings-view');
+    const openSettingsBtn = document.getElementById('open-settings-btn');
+    const backToMainBtn = document.getElementById('back-to-main');
+
+    const toggleSettings = (show) => {
+        if (!mainView || !settingsView) return;
+        if (show) {
+            mainView.classList.remove('active');
+            settingsView.classList.add('active');
+        } else {
+            mainView.classList.add('active');
+            settingsView.classList.remove('active');
+        }
+    };
+
+    if (openSettingsBtn) openSettingsBtn.onclick = () => toggleSettings(true);
+    if (backToMainBtn) backToMainBtn.onclick = () => toggleSettings(false);
+
     if (sidebarProfileBtn && profilePopup) {
         sidebarProfileBtn.onclick = (e) => {
             e.stopPropagation();
             profilePopup.classList.toggle('hidden');
         };
-        document.addEventListener('click', () => profilePopup.classList.add('hidden'));
     }
 
-    if (popupProfileBtn) popupProfileBtn.onclick = () => {
+    if (popupProfileBtn) popupProfileBtn.onclick = (e) => {
+        e.stopPropagation();
         router.navigate('profile');
         profilePopup.classList.add('hidden');
     };
-    if (popupSignoutBtn) popupSignoutBtn.onclick = () => {
+    if (popupSignoutBtn) popupSignoutBtn.onclick = (e) => {
+        e.stopPropagation();
         DB.logout();
         currentUser = null;
         currentSessionId = null;
         localStorage.removeItem('last_session_id');
-        if (profilePopup) profilePopup.classList.add('hidden');
+        profilePopup.classList.add('hidden');
         router.navigate('home');
     };
     document.addEventListener('click', (e) => {
@@ -877,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedOpt) toggleOpt(true);
     }
 
-    // --- Other Hooks ---
+    // --- Other Hooks consolidated in initApp or startup ---
     if (sendBtn) sendBtn.onclick = sendMessage;
     if (stopBtn) stopBtn.onclick = () => currentAbortController?.abort();
     if (userInput) {
@@ -885,23 +906,12 @@ document.addEventListener('DOMContentLoaded', () => {
         userInput.oninput = function () { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; };
     }
 
-    const btnNewChat = document.getElementById('new-chat-sidebar-btn');
-    if (btnNewChat) {
-        btnNewChat.onclick = () => {
-            currentSessionId = null;
-            localStorage.removeItem('last_session_id');
-            chatHistory = [];
-            if (chatMessages) chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
-            loadSessions();
-        };
-    }
-
-    const plusBtn = document.querySelector('.chat-input-wrapper .plus-btn');
-    const plusMenu = document.querySelector('.chat-input-wrapper .plus-menu');
+    const plusBtn = document.getElementById('plus-btn');
+    const plusMenu = document.getElementById('plus-menu');
     if (plusBtn) plusBtn.onclick = (e) => { e.stopPropagation(); plusMenu?.classList.toggle('hidden'); };
     document.addEventListener('click', () => { if (plusMenu) plusMenu.classList.add('hidden'); });
     const navImg = document.getElementById('nav-image-gen');
-    if (navImg) navImg.onclick = () => window.location.href = 'media.html';
+    if (navImg) navImg.onclick = () => { /* Handle image gen navigation if needed or remove if unused */ };
 
     // --- Mobile Menu Toggle ---
     const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
