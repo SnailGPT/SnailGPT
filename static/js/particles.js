@@ -12,7 +12,7 @@ class ParticleNetwork {
 
         // Configuration
         this.density = window.innerWidth < 768 ? 60 : 120; // More particles (lights)
-        this.connectionDistance = 80; // Lower connectivity rate (max distance for lines)
+        this.connectionDistance = 150; // Increased connectivity distance
         this.interactionRadius = 200; // Larger mouse attraction radius
         this.baseSpeed = 0.4;
 
@@ -49,7 +49,7 @@ class ParticleNetwork {
             x: Math.random() * this.canvas.width,
             y: Math.random() * this.canvas.height,
             z: z,
-            size: z * 2 + 0.5,
+            size: z * 3 + 1.0,
             vx: (Math.random() - 0.5) * this.baseSpeed * (z + 0.5),
             vy: (Math.random() - 0.5) * this.baseSpeed * (z + 0.5),
         };

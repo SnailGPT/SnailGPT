@@ -7,4 +7,3 @@ pillow
 python-dotenv
 serverless-wsgi
 bcrypt
-psycopg2-binary

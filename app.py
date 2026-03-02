@@ -1,31 +1,18 @@
 import os
-import requests
 import json
 import time
 import uuid
 import sqlite3
 import bcrypt
-from flask import Flask, render_template, request, jsonify, Response, g, stream_with_context
+from flask import Flask, render_template, request, jsonify, Response, g
 from flask_cors import CORS
-import re
-import subprocess
-import shutil
 
-# To handle Vercel Postgres compatibility
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    HAS_POSTGRES = True
-except ImportError:
-    HAS_POSTGRES = False
-
-import openai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 from io import BytesIO
 from PIL import Image
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 CORS(app)
 
 import shutil
@@ -34,14 +21,12 @@ import shutil
 
 # Use /tmp for writable DB in serverless environments like Vercel
 IS_VERCEL = "VERCEL" in os.environ
-POSTGRES_URL = os.environ.get("POSTGRES_URL") or os.environ.get("DATABASE_URL")
-USE_POSTGRES = bool(POSTGRES_URL and HAS_POSTGRES)
-
 USERS_DB_ROOT = os.path.join(os.path.dirname(__file__), 'users.db')
 USERS_DB_TMP = os.path.join('/tmp', 'users.db')
 
-if IS_VERCEL and not USE_POSTGRES:
+if IS_VERCEL:
     # On Vercel, copy the bundled DB to /tmp if not already there
+    # This allows the instance to at least start with the committed users
     if not os.path.exists(USERS_DB_TMP) and os.path.exists(USERS_DB_ROOT):
         try:
             shutil.copy2(USERS_DB_ROOT, USERS_DB_TMP)
@@ -53,41 +38,17 @@ else:
 
 def get_db():
     db = getattr(g, '_database', None)
-    if getattr(g, '_database', None) is None:
-        if USE_POSTGRES:
-            # Connect to Vercel Postgres
-            db = g._database = psycopg2.connect(POSTGRES_URL)
-        else:
-            # Fallback to SQLite
-            db = g._database = sqlite3.connect(USERS_DB)
-            db.row_factory = sqlite3.Row
+    if db is None:
+        db = g._database = sqlite3.connect(USERS_DB)
+        db.row_factory = sqlite3.Row
     return db
-
-def query_db(query, args=(), one=False):
-    db = get_db()
-    if USE_POSTGRES:
-        with db.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query.replace('?', '%s'), args)
-            db.commit()
-            if query.strip().upper().startswith("SELECT"):
-                rv = cur.fetchall()
-                return (rv[0] if rv else None) if one else rv
-            return None
-    else:
-        cur = db.execute(query, args)
-        db.commit()
-        if query.strip().upper().startswith("SELECT"):
-            rv = cur.fetchall()
-            return (rv[0] if rv else None) if one else rv
-        return None
-
-def execute_db(query, args=()):
-    query_db(query, args)
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    # Pass through HTTP errors
     if hasattr(e, 'code') and hasattr(e, 'description'):
         return jsonify(error=str(e.description)), e.code
+    # Handle non-HTTP exceptions
     return jsonify(error="Internal Server Error", message=str(e)), 500
 
 @app.teardown_appcontext
@@ -97,60 +58,30 @@ def close_db(exception):
         db.close()
 
 def init_db():
-    try:
-        if USE_POSTGRES:
-            db = get_db()
-            with db.cursor() as cur:
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
-                        email TEXT UNIQUE NOT NULL,
-                        username TEXT UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
-                        recovery_code TEXT NOT NULL,
-                        avatar_url TEXT
-                    )
-                ''')
-                cur.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        user_email TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        history TEXT NOT NULL,
-                        updated_at REAL NOT NULL,
-                        FOREIGN KEY (user_email) REFERENCES users (email) ON DELETE CASCADE
-                    )
-                ''')
-                db.commit()
-        else:
-            with sqlite3.connect(USERS_DB) as conn:
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email TEXT UNIQUE NOT NULL,
-                        username TEXT UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
-                        recovery_code TEXT NOT NULL,
-                        avatar_url TEXT
-                    )
-                ''')
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        user_email TEXT NOT NULL,
-                        title TEXT NOT NULL,
-                        history TEXT NOT NULL,
-                        updated_at REAL NOT NULL,
-                        FOREIGN KEY (user_email) REFERENCES users (email)
-                    )
-                ''')
-                conn.commit()
-    except Exception as e:
-        print(f"Failed to initialize DB: {e}")
+    with sqlite3.connect(USERS_DB) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                recovery_code TEXT NOT NULL,
+                avatar_url TEXT
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL,
+                title TEXT NOT NULL,
+                history TEXT NOT NULL,
+                updated_at REAL NOT NULL,
+                FOREIGN KEY (user_email) REFERENCES users (email)
+            )
+        ''')
+        conn.commit()
 
-# This will only run safely within a context, alternatively we will run it on first request
-with app.app_context():
-    init_db()
+init_db()
 
 # ================= CONFIG (ONLINE ONLY) =================
 
@@ -177,7 +108,7 @@ def get_client():
 
 # ================= CORE BRAIN =================
 
-def generate_response(messages, stream=False, mode="normal", model="meta-llama/Llama-3.1-70B-Instruct"):
+def generate_response(messages, stream=False, mode="normal"):
     # Max tokens set to high limits to prevent premature stops
     max_tokens = 8192 
     temp = 0.7
@@ -195,7 +126,7 @@ def generate_response(messages, stream=False, mode="normal", model="meta-llama/L
     try:
         c = get_client()
         completion = c.chat.completions.create(
-            model=model,
+            model=MODEL_NAME,
             messages=messages,
             stream=stream,
             temperature=temp,
@@ -208,7 +139,7 @@ def generate_response(messages, stream=False, mode="normal", model="meta-llama/L
 
 from datetime import datetime
 
-def ai_answer_stream(message: str, history: list, mode: str = "normal", model: str = "meta-llama/Llama-3.1-70B-Instruct"):
+def ai_answer_stream(message: str, history: list, mode: str = "normal"):
     # 1. Determine Mode Based on Message Complexity
     is_greeting = message.lower().strip().strip("!.,") in ["hi", "hello", "hey", "greetings", "sup", "yo", "good morning", "good evening"]
     is_complex = len(message.split()) > 15 or any(word in message.lower() for word in ["explain", "comprehensive", "story", "code", "guide", "research", "how", "write", "analyze"])
@@ -266,7 +197,7 @@ def ai_answer_stream(message: str, history: list, mode: str = "normal", model: s
 
     # 4. Request
     try:
-        completion = generate_response(messages, stream=True, mode=active_mode, model=model)
+        completion = generate_response(messages, stream=True, mode=active_mode)
         
         if isinstance(completion, str): # Error message
             yield completion
@@ -281,21 +212,23 @@ def ai_answer_stream(message: str, history: list, mode: str = "normal", model: s
         yield f"❌ Error: {str(e)}"
 
 def save_session_to_db(user_email, session_id, title, history):
+    db = get_db()
     updated_at = time.time()
     history_json = json.dumps(history)
     
     # Check if exists
-    exists = query_db('SELECT id FROM sessions WHERE id = ?', (session_id,), one=True)
+    exists = db.execute('SELECT id FROM sessions WHERE id = ?', (session_id,)).fetchone()
     if exists:
-        execute_db(
+        db.execute(
             'UPDATE sessions SET title = ?, history = ?, updated_at = ? WHERE id = ?',
             (title, history_json, updated_at, session_id)
         )
     else:
-        execute_db(
+        db.execute(
             'INSERT INTO sessions (id, user_email, title, history, updated_at) VALUES (?, ?, ?, ?, ?)',
             (session_id, user_email, title, history_json, updated_at)
         )
+    db.commit()
 
 def generate_title(history):
     if not history:
@@ -326,6 +259,50 @@ def generate_title(history):
 def index():
     return render_template("index.html", snail_mode="online")
 
+@app.route("/media")
+def media_page():
+    return render_template("media.html")
+
+@app.route("/generate_image", methods=["POST"])
+def generate_image():
+    try:
+        data = request.get_json()
+        prompt = data.get("prompt", "")
+        
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        # Specialized Client for Image Gen
+        # Using the same HF_TOKEN as chat
+        img_client = InferenceClient(
+            provider="replicate",
+            api_key=API_KEY
+        )
+
+        image = img_client.text_to_image(
+            prompt,
+            model="ByteDance/SDXL-Lightning"
+        )
+        
+        # Save Image to /tmp (writable in Vercel)
+        filename = f"gen_{uuid.uuid4()}.png"
+        save_dir = os.path.join("/tmp", "generated_images")
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, filename)
+        
+        image.save(save_path)
+        
+        return jsonify({"image_url": f"/api/images/{filename}"})
+
+    except Exception as e:
+        print(f"Image Gen Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/images/<filename>")
+def serve_generated_image(filename):
+    from flask import send_from_directory
+    return send_from_directory(os.path.join("/tmp", "generated_images"), filename)
+
 @app.route("/chat", methods=["POST"])
 def chat():
     from flask import Response
@@ -339,13 +316,12 @@ def chat():
         user_email = data.get("user_email")
         session_id = data.get("session_id")
         extreme_opt = data.get("extreme_opt", False)
-        model = data.get("model", "meta-llama/Llama-3.1-70B-Instruct")
         
         mode = "extreme" if extreme_opt else "normal"
         
         def generate():
             full_text = ""
-            for token in ai_answer_stream(message, history, mode, model):
+            for token in ai_answer_stream(message, history, mode):
                 full_text += token
                 yield token
             
@@ -355,17 +331,13 @@ def chat():
                 history.append({"role": "assistant", "content": full_text})
                 
                 # Check if we need to set/generate a title
-                row = query_db('SELECT title FROM sessions WHERE id = ?', (session_id,), one=True)
+                db = get_db()
+                row = db.execute('SELECT title FROM sessions WHERE id = ?', (session_id,)).fetchone()
                 title = row['title'] if row else generate_title(history)
                 
                 save_session_to_db(user_email, session_id, title, history)
 
-        headers = {
-            'X-Accel-Buffering': 'no',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
-        }
-        return Response(stream_with_context(generate()), mimetype='text/plain', headers=headers)
+        return Response(generate(), mimetype='text/plain')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -375,13 +347,18 @@ def list_sessions():
     if not user_email:
         return jsonify({'error': 'Email required'}), 400
     
-    rows = query_db('SELECT id, title, updated_at FROM sessions WHERE user_email = ? ORDER BY updated_at DESC', (user_email,))
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, updated_at FROM sessions WHERE user_email = ? ORDER BY updated_at DESC',
+        (user_email,)
+    ).fetchall()
     
-    return jsonify([dict(r) for r in (rows or [])])
+    return jsonify([dict(r) for r in rows])
 
 @app.route("/api/session/<session_id>", methods=["GET"])
 def get_session(session_id):
-    row = query_db('SELECT * FROM sessions WHERE id = ?', (session_id,), one=True)
+    db = get_db()
+    row = db.execute('SELECT * FROM sessions WHERE id = ?', (session_id,)).fetchone()
     if row:
         data = dict(row)
         data['history'] = json.loads(data['history'])
@@ -409,7 +386,9 @@ def delete_session():
     if not session_id:
         return jsonify({'error': 'Session ID required'}), 400
     
-    execute_db('DELETE FROM sessions WHERE id = ?', (session_id,))
+    db = get_db()
+    db.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
+    db.commit()
     return jsonify({"status": "success"})
 
 @app.route("/api/session/clear_all", methods=["POST"])
@@ -419,7 +398,9 @@ def clear_all_sessions():
     if not user_email:
         return jsonify({'error': 'Email required'}), 400
     
-    execute_db('DELETE FROM sessions WHERE user_email = ?', (user_email,))
+    db = get_db()
+    db.execute('DELETE FROM sessions WHERE user_email = ?', (user_email,))
+    db.commit()
     return jsonify({"status": "success"})
 
 # ================= AUTH API =================
@@ -439,18 +420,20 @@ def api_register():
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters.'}), 400
 
-    if query_db('SELECT id FROM users WHERE email = ?', (email,), one=True):
+    db = get_db()
+    if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
         return jsonify({'error': 'email already registered use a different one'}), 409
-    if query_db('SELECT id FROM users WHERE username = ?', (username,), one=True):
+    if db.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
         return jsonify({'error': 'This display name is already taken. Please choose another.'}), 409
 
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     recovery_code = str(uuid.uuid4().int)[:6]  # 6-digit code
 
-    execute_db(
+    db.execute(
         'INSERT INTO users (email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?)',
         (email, username, password_hash, recovery_code)
     )
+    db.commit()
 
     return jsonify({
         'email': email,
@@ -471,9 +454,10 @@ def api_login():
     if not identifier or not password:
         return jsonify({'error': 'Email/username and password are required.'}), 400
 
-    row = query_db(
-        'SELECT * FROM users WHERE email = ? OR username = ?', (identifier, identifier), one=True
-    )
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM users WHERE email = ? OR username = ?', (identifier, identifier)
+    ).fetchone()
 
     if not row or not bcrypt.checkpw(password.encode('utf-8'), row['password_hash'].encode('utf-8')):
         return jsonify({'error': 'Invalid identifier or password.'}), 401
@@ -498,7 +482,8 @@ def api_user_update():
     if not email:
         return jsonify({'error': 'Email is required.'}), 400
 
-    row = query_db('SELECT * FROM users WHERE email = ?', (email,), one=True)
+    db = get_db()
+    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     if not row:
         return jsonify({'error': 'User not found.'}), 404
 
@@ -506,7 +491,7 @@ def api_user_update():
     params = []
 
     if new_username and new_username != row['username']:
-        clash = query_db('SELECT id FROM users WHERE username = ? AND email != ?', (new_username, email), one=True)
+        clash = db.execute('SELECT id FROM users WHERE username = ? AND email != ?', (new_username, email)).fetchone()
         if clash:
             return jsonify({'error': 'This display name is already taken.'}), 409
         updates.append('username = ?')
@@ -527,9 +512,10 @@ def api_user_update():
 
     if updates:
         params.append(email)
-        execute_db(f'UPDATE users SET {", ".join(updates)} WHERE email = ?', params)
+        db.execute(f'UPDATE users SET {", ".join(updates)} WHERE email = ?', params)
+        db.commit()
 
-    updated = query_db('SELECT * FROM users WHERE email = ?', (email,), one=True)
+    updated = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
     return jsonify({
         'email': updated['email'],
         'username': updated['username'],

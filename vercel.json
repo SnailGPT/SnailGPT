@@ -1,17 +1,20 @@
 {
     "version": 2,
-    "functions": {
-        "api/index.py": {
-            "maxDuration": 60
-        }
-    },
     "rewrites": [
+        {
+            "source": "/static/(.*)",
+            "destination": "/static/$1"
+        },
         {
             "source": "/api/(.*)",
             "destination": "/api/index.py"
         },
         {
             "source": "/chat",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/generate_image",
             "destination": "/api/index.py"
         },
         {
@@ -31,8 +34,12 @@
             "destination": "/api/index.py"
         },
         {
-            "source": "/",
-            "destination": "/index.html"
+            "source": "/media",
+            "destination": "/api/index.py"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/api/index.py"
         }
     ]
 }

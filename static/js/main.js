@@ -78,11 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let chatHistory = [];
     let currentAbortController = null;
 
-    // New Advanced Features State
-    let currentModel = localStorage.getItem('snail-gpt-model') || 'meta-llama/Llama-3.1-70B-Instruct';
-    let attachedDocument = null; // {name, content}
-    let webSearchMode = false;
-
     // Developer Credentials (Bypass)
     const DEV_ACCOUNT = {
         email: 'kartik.ps.mishra07@gmail.com',
@@ -127,24 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.router = router; // Global access for inline onclicks
 
-    // --- Auth Logic ---
-    // These functions are no longer used for the main auth flow
-    function sendSimulatedEmail(code) {
-        const toast = document.getElementById('email-notification');
-        const codeDisplay = document.getElementById('sent-code-display');
-        if (codeDisplay) codeDisplay.textContent = code;
-        if (toast) {
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 8000);
-        }
-    }
-
-    function generateCode() {
-        // This function is no longer used for the main auth flow
-        return "000000"; // Placeholder
-    }
-
-    // Attach Nav Events
+    // --- Nav Events ---
     const btnSignup = document.getElementById('nav-signup-btn');
     const btnLogin = document.getElementById('nav-login-btn');
     const btnBackHome = document.getElementById('auth-back-home');
@@ -173,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('signup-email').value.trim();
         const username = document.getElementById('signup-username').value.trim();
         const password = document.getElementById('signup-password').value;
-
         const confirm = document.getElementById('signup-confirm').value;
 
         if (password !== confirm) return alert("Passwords do not match");
@@ -534,25 +511,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const isExtremeOpt = document.body.classList.contains('extreme-opt');
 
-            let finalMessage = message;
-            if (attachedDocument) {
-                finalMessage = `[Attached Document: ${attachedDocument.name}]\n\n${attachedDocument.content}\n\n---\n\nUser Question:\n${message}`;
-                // Clear after sending
-                attachedDocument = null;
-                const docIndicator = document.getElementById('attached-doc-indicator');
-                if (docIndicator) docIndicator.classList.add('hidden');
-            }
-            if (webSearchMode) {
-                finalMessage = `[Please use live web search/browsing if necessary to answer accurately]\n` + finalMessage;
-            }
-
             const payload = {
-                message: finalMessage,
+                message: message,
                 history: historyCopy,
                 user_email: currentUser?.email,
                 session_id: currentSessionId,
-                extreme_opt: isExtremeOpt,
-                model: currentModel
+                extreme_opt: isExtremeOpt
             };
 
             const response = await fetch(`/chat`, {
@@ -585,36 +549,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollToBottom();
                 }
             }
-            chatHistory.push({ role: "user", content: finalMessage });
+            chatHistory.push({ role: "user", content: message });
             chatHistory.push({ role: "assistant", content: fullText });
-
-            // Render Live Sandbox Buttons for HTML blocks
-            if (aiMessageContent) {
-                const htmlBlocks = aiMessageContent.querySelectorAll('pre code.language-html');
-                htmlBlocks.forEach(block => {
-                    const pre = block.parentElement;
-                    if (!pre.nextElementSibling?.classList.contains('sandbox-btn')) {
-                        const btn = document.createElement('button');
-                        btn.className = 'sandbox-btn';
-                        btn.innerHTML = '<i class="fas fa-play"></i> Run Code';
-                        btn.style.cssText = 'display:inline-block; margin: 10px 0; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem;';
-                        btn.onclick = () => {
-                            if (btn.nextElementSibling?.tagName === 'IFRAME') {
-                                btn.nextElementSibling.remove();
-                                btn.innerHTML = '<i class="fas fa-play"></i> Run Code';
-                            } else {
-                                const iframe = document.createElement('iframe');
-                                iframe.style.cssText = 'width: 100%; height: 400px; border: 1px solid var(--glass-border); border-radius: 8px; margin-top: 10px; background: white;';
-                                iframe.srcdoc = block.innerText;
-                                btn.after(iframe);
-                                btn.innerHTML = '<i class="fas fa-times"></i> Close Sandbox';
-                            }
-                        };
-                        pre.after(btn);
-                    }
-                });
-            }
-
             // Backend saves automatically after stream
             loadSessions();
         } catch (error) {
@@ -644,33 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         bubble.innerHTML = `<div class="avatar" ${sender === 'user' && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div><div class="message-wrap"><div class="message-content">${sender === 'ai' ? marked.parse(text) : text}</div></div>`;
-
-        // Render Live Sandbox logic for old messages loaded from history
-        if (sender === 'ai') {
-            const aiMessageContent = bubble.querySelector('.message-content');
-            const htmlBlocks = aiMessageContent.querySelectorAll('pre code.language-html');
-            htmlBlocks.forEach(block => {
-                const pre = block.parentElement;
-                const btn = document.createElement('button');
-                btn.className = 'sandbox-btn';
-                btn.innerHTML = '<i class="fas fa-play"></i> Run Code';
-                btn.style.cssText = 'display:inline-block; margin: 10px 0; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem;';
-                btn.onclick = () => {
-                    if (btn.nextElementSibling?.tagName === 'IFRAME') {
-                        btn.nextElementSibling.remove();
-                        btn.innerHTML = '<i class="fas fa-play"></i> Run Code';
-                    } else {
-                        const iframe = document.createElement('iframe');
-                        iframe.style.cssText = 'width: 100%; height: 400px; border: 1px solid var(--glass-border); border-radius: 8px; margin-top: 10px; background: white;';
-                        iframe.srcdoc = block.innerText;
-                        btn.after(iframe);
-                        btn.innerHTML = '<i class="fas fa-times"></i> Close Sandbox';
-                    }
-                };
-                pre.after(btn);
-            });
-        }
-
         chatMessages.appendChild(bubble);
         const welcome = document.querySelector('.welcome-message');
         if (welcome) welcome.remove();
@@ -847,27 +756,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('snail-gpt-anim', a);
     });
 
-    // Setup Model Dropdown
-    setupMenuDropdown('model-dropdown', (m) => {
-        currentModel = m;
-        localStorage.setItem('snail-gpt-model', m);
-        const dropdown = document.getElementById('model-dropdown');
-        const selectedSpan = dropdown.querySelector('.dropdown-selected span');
-        const selectedOption = dropdown.querySelector(`.option[data-model="${m}"]`);
-        if (selectedOption && selectedSpan) {
-            selectedSpan.innerHTML = selectedOption.innerHTML;
-        }
-    });
-
-    // Restore selected model visually on load
-    const savedModel = localStorage.getItem('snail-gpt-model');
-    if (savedModel) {
-        const dropdown = document.getElementById('model-dropdown');
-        const selectedSpan = dropdown?.querySelector('.dropdown-selected span');
-        const selectedOption = dropdown?.querySelector(`.option[data-model="${savedModel}"]`);
-        if (selectedOption && selectedSpan) selectedSpan.innerHTML = selectedOption.innerHTML;
-    }
-
     // Restore saved theme on load
     const savedTheme = localStorage.getItem('snail-gpt-theme') || 'midnight';
     applyTheme(savedTheme);
@@ -947,143 +835,12 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Advanced Features (Plus Menu & Voice) ---
-    const plusBtn = document.getElementById('plus-btn');
-    const plusMenu = document.getElementById('plus-menu');
-
-    if (plusBtn && plusMenu) {
-        plusBtn.onclick = (e) => {
-            e.stopPropagation();
-            plusMenu.classList.toggle('hidden');
-        };
-        document.addEventListener('click', (e) => {
-            if (!plusMenu.contains(e.target) && e.target !== plusBtn) {
-                plusMenu.classList.add('hidden');
-            }
-        });
-    }
-
-    // Document Upload
-    const btnUploadDoc = document.getElementById('action-upload-doc');
-    const docInput = document.getElementById('doc-upload-input');
-    const docIndicator = document.getElementById('attached-doc-indicator');
-    const docNameDisplay = document.getElementById('attached-doc-name');
-    const docRemoveBtn = document.getElementById('remove-doc-btn');
-
-    if (btnUploadDoc && docInput) {
-        btnUploadDoc.onclick = () => docInput.click();
-        docInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                attachedDocument = {
-                    name: file.name,
-                    content: ev.target.result
-                };
-                if (docNameDisplay) docNameDisplay.textContent = file.name;
-                if (docIndicator) docIndicator.classList.remove('hidden');
-                if (plusMenu) plusMenu.classList.add('hidden');
-                if (userInput) userInput.focus();
-            };
-            reader.readAsText(file);
-            docInput.value = '';
-        };
-    }
-
-    if (docRemoveBtn) {
-        docRemoveBtn.onclick = () => {
-            attachedDocument = null;
-            docIndicator.classList.add('hidden');
-        };
-    }
-
-    // Export Chat
-    const btnExport = document.getElementById('action-export-chat');
-    if (btnExport) {
-        btnExport.onclick = () => {
-            if (!chatHistory || chatHistory.length === 0) {
-                alert("No chat history to export.");
-                return;
-            }
-            let exportContent = "# SnailGPT Session Export\n\n";
-            exportContent += "Date: " + new Date().toLocaleString() + "\n";
-            exportContent += "Model: " + currentModel + "\n\n";
-            exportContent += "---\n\n";
-
-            chatHistory.forEach(msg => {
-                const role = msg.role === 'user' ? 'USER' : 'SNAILGPT';
-                exportContent += `### ${role}:\n${msg.content}\n\n`;
-            });
-
-            const blob = new Blob([exportContent], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `SnailGPT_Export_${Date.now()}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
-            if (plusMenu) plusMenu.classList.add('hidden');
-        };
-    }
-
-    // Web Search Toggle
-    const btnWebSearch = document.getElementById('action-web-search');
-    const webSearchText = document.getElementById('web-search-text');
-    if (btnWebSearch && webSearchText) {
-        btnWebSearch.onclick = () => {
-            webSearchMode = !webSearchMode;
-            webSearchText.textContent = `Web Search: ${webSearchMode ? 'ON' : 'OFF'}`;
-            webSearchText.style.color = webSearchMode ? 'var(--primary)' : '';
-            if (plusMenu) plusMenu.classList.add('hidden');
-        };
-    }
-
-    // Voice Input (Speech Recognition)
-    const voiceBtn = document.getElementById('voice-btn');
-    if (voiceBtn) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-
-            let isRecording = false;
-
-            recognition.onstart = () => {
-                isRecording = true;
-                voiceBtn.style.color = 'var(--primary)';
-                if (userInput) userInput.placeholder = "Listening...";
-            };
-
-            recognition.onresult = (e) => {
-                const transcript = e.results[0][0].transcript;
-                if (userInput) {
-                    userInput.value += (userInput.value ? ' ' : '') + transcript;
-                    userInput.style.height = 'auto';
-                    userInput.style.height = userInput.scrollHeight + 'px';
-                }
-            };
-
-            recognition.onerror = (e) => console.error("Speech error", e);
-
-            recognition.onend = () => {
-                isRecording = false;
-                voiceBtn.style.color = '';
-                if (userInput) userInput.placeholder = "Enter query...";
-            };
-
-            voiceBtn.onclick = () => {
-                if (isRecording) {
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
-            };
-        } else {
-            voiceBtn.onclick = () => alert("Speech Recognition is not supported in this browser.");
-        }
-    }
+    const plusBtn = document.querySelector('.chat-input-wrapper .plus-btn');
+    const plusMenu = document.querySelector('.chat-input-wrapper .plus-menu');
+    if (plusBtn) plusBtn.onclick = (e) => { e.stopPropagation(); plusMenu?.classList.toggle('hidden'); };
+    document.addEventListener('click', () => { if (plusMenu) plusMenu.classList.add('hidden'); });
+    const navImg = document.getElementById('nav-image-gen');
+    if (navImg) navImg.onclick = () => window.location.href = 'media.html';
 
     // --- Mobile Menu Toggle ---
     const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
