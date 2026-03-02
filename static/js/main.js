@@ -215,8 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // Handle Popup Avatar
+        const footerNameEl = document.getElementById('footer-user-name');
         const popupInitialEl = document.getElementById('popup-user-initial');
-        const popupNameEl = document.getElementById('popup-user-name');
+        const popupUserName = document.getElementById('popup-user-name');
         if (popupInitialEl) {
             if (currentUser.avatarUrl) {
                 popupInitialEl.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
@@ -226,7 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 popupInitialEl.style.background = '';
             }
         }
-        if (popupNameEl) popupNameEl.textContent = currentUser.username;
+        if (footerNameEl) footerNameEl.textContent = currentUser.username;
+        if (popupUserName) popupUserName.textContent = currentUser.username;
 
         // Developer Mode Access Control
         const devAccessContainer = document.getElementById('dev-access-container');

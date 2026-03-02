@@ -124,21 +124,12 @@
                         <i class="fas fa-plus"></i>
                         <span>New Research</span>
                     </button>
-                    <button id="open-settings-btn" class="settings-cog-btn" title="Settings">
-                        <i class="fas fa-cog"></i>
-                    </button>
                 </div>
 
                 <!-- Sidebar Body -->
                 <div class="sidebar-body">
                     <div id="sidebar-main-view" class="sidebar-view active">
-                        <!-- Navigation Menu Items -->
-                        <div class="nav-menu">
-                            <div class="nav-item"><i class="fas fa-search"></i> <span>Search chats</span></div>
-                            <div class="nav-item"><i class="fas fa-image"></i> <span>Images</span></div>
-                            <div class="nav-item"><i class="fas fa-th-large"></i> <span>Apps</span></div>
-                            <div class="nav-item"><i class="fas fa-terminal"></i> <span>Codex</span></div>
-                        </div>
+
 
                         <div class="history-section">
                             <div class="history-label">Your Research</div>
@@ -193,18 +184,17 @@
                 </div>
                 <div class="sidebar-footer">
                     <div class="profile-menu-wrapper" id="profile-menu-wrapper">
-                        <button class="sidebar-user-footer" id="sidebar-profile-btn">
+                        <div class="sidebar-user-footer" id="sidebar-profile-btn">
                             <div class="footer-avatar" id="user-initial">U</div>
                             <div class="footer-user-details">
-                                <div class="footer-user-name" id="popup-user-name">Researcher</div>
-                                <div class="footer-user-status">Free</div>
+                                <div class="footer-user-name" id="footer-user-name">Researcher</div>
                             </div>
                             <button class="upgrade-btn">Upgrade</button>
-                        </button>
+                        </div>
                         <!-- Sign-Out Popup -->
                         <div class="profile-popup hidden" id="profile-popup">
                             <button class="profile-popup-item" id="popup-profile-btn">
-                                <i class="fas fa-user-circle"></i> View Profile
+                                <i class="fas fa-cog"></i> Settings & Profile
                             </button>
                             <button class="profile-popup-item danger" id="popup-signout-btn">
                                 <i class="fas fa-sign-out-alt"></i> Sign Out
