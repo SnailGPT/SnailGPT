@@ -447,10 +447,12 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             profilePopup.classList.toggle('hidden');
         };
+        document.addEventListener('click', () => profilePopup.classList.add('hidden'));
     }
+
     if (popupProfileBtn) popupProfileBtn.onclick = () => {
-        if (profilePopup) profilePopup.classList.add('hidden');
         router.navigate('profile');
+        profilePopup.classList.add('hidden');
     };
     if (popupSignoutBtn) popupSignoutBtn.onclick = () => {
         DB.logout();
@@ -505,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         appendMessage('user', message);
+        document.body.classList.remove('empty-chat');
         userInput.value = '';
         userInput.style.height = 'auto';
         userInput.disabled = true;
@@ -560,10 +563,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollToBottom();
                 }
             }
+
             chatHistory.push({ role: "user", content: message });
             chatHistory.push({ role: "assistant", content: fullText });
-            // Backend saves automatically after stream
-            loadSessions();
+
+            // Ensure the session is saved and UI is refreshed
+            if (currentUser) {
+                const currentTitle = document.querySelector(`.history-item[data-id="${currentSessionId}"] .session-title-text`)?.textContent || message.substring(0, 40);
+
+                await DB.saveConversation(currentUser.email, {
+                    id: currentSessionId,
+                    title: currentTitle,
+                    history: chatHistory
+                });
+
+                setTimeout(() => loadSessions(), 300);
+            }
         } catch (error) {
             toggleTyping(false);
             if (error.name !== 'AbortError') {
@@ -717,6 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderWelcomeScreen() {
         if (!chatMessages) return;
+        document.body.classList.add('empty-chat');
         chatMessages.innerHTML = `
             <div class="welcome-message">
                 <h1>How can I assist your research?</h1>
@@ -732,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) return;
         const s = await DB.getConversation(id);
         if (s) {
+            document.body.classList.remove('empty-chat');
             currentSessionId = id;
             localStorage.setItem('last_session_id', id);
             chatHistory = s.history;

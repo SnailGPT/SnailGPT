@@ -1088,78 +1088,161 @@ body[data-anim="minimal"] #sidebar {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
+}
+
+.new-chat-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-primary);
+    font-weight: 600;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.new-chat-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .settings-cog-btn {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
     color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    transition: all 0.4s var(--spring-bouncy);
-    flex-shrink: 0;
+    font-size: 18px;
+    transition: all 0.3s ease;
 }
 
 .settings-cog-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--primary);
-    transform: rotate(90deg) scale(1.1);
-    border-color: var(--primary);
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
 }
 
-/* ---- Profile Avatar Button (Round-Square) ---- */
-.profile-menu-wrapper {
-    position: relative;
-    flex-shrink: 0;
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 20px;
 }
 
-.sidebar-profile-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    border: none;
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 800;
-    font-family: var(--font-main);
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--text-muted);
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-user-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.sidebar-user-footer:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.footer-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s var(--spring-bouncy);
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
 }
 
-.sidebar-profile-avatar:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.5);
+.footer-user-details {
+    flex: 1;
+    overflow: hidden;
 }
 
-/* ---- Profile Popup Dropdown ---- */
+.footer-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.footer-user-status {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.upgrade-btn {
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.upgrade-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---- Profile Popup Dropdown (Positions Above Footer) ---- */
 .profile-popup {
     position: absolute;
-    top: calc(100% + 10px);
+    bottom: calc(100% + 10px);
     left: 0;
-    min-width: 200px;
-    background: rgba(15, 17, 26, 0.95);
-    border: 1px solid var(--glass-border);
-    border-radius: 18px;
-    padding: 12px;
+    min-width: 240px;
+    background: #171717;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 8px;
     backdrop-filter: blur(40px);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
     animation: popupFadeIn 0.2s ease;
 }
 
@@ -1268,7 +1351,7 @@ body[data-anim="minimal"] #sidebar {
     box-shadow: 0 0 15px rgba(var(--primary), 0.2);
 }
 
-.new-chat-btn {
+/* .new-chat-btn {
     flex: 1;
     padding: 16px;
     border-radius: 18px;
@@ -1288,7 +1371,7 @@ body[data-anim="minimal"] #sidebar {
 .new-chat-btn:hover {
     transform: scale(1.04) translateY(-4px);
     box-shadow: 0 15px 50px rgba(var(--primary), 0.6);
-}
+} */
 
 .history-item {
     padding: 14px 18px;
@@ -1312,10 +1395,19 @@ body[data-anim="minimal"] #sidebar {
 }
 
 .history-item.active {
-    background: rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
     color: var(--text-primary);
-    border: 1px solid var(--glass-border);
-    transform: translateX(5px);
+    transform: none;
+}
+
+.history-item.active::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    width: 4px;
+    height: 12px;
+    background: var(--primary);
+    border-radius: 4px;
 }
 
 .delete-session-btn {
@@ -1496,18 +1588,16 @@ body[data-anim="minimal"] #sidebar {
     align-items: center;
     justify-content: center;
     height: 100%;
-    margin-top: 20vh;
-    transition: all 0.5s ease;
+    transform: translateY(-5%);
 }
 
 .welcome-message h1 {
-    font-size: 38px;
-    font-weight: 500;
+    font-size: 32px;
+    font-weight: 600;
     font-family: 'Outfit', sans-serif;
     color: var(--text-primary);
-    opacity: 0.9;
-    letter-spacing: -0.5px;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
+    text-align: center;
 }
 
 /* --- Recent Research Dashboard --- */
@@ -1836,12 +1926,24 @@ body.extreme-opt .chat-bubble {
     }
 }
 
-/* ================= INPUT (THE COMMAND CENTER) ================= */
+/* ================= INPUT AREA (CENTERED FOR EMPTY) ================= */
 #input-container {
-    padding: 20px 40px 70px;
-    display: flex;
-    justify-content: center;
-    transition: all 0.5s var(--fluid-fast);
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    transition: all 0.5s var(--spring-bouncy);
+}
+
+body.empty-chat #input-container {
+    position: absolute;
+    bottom: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 768px;
+    z-index: 10;
 }
 
 #chat-window:has(.welcome-message)+#input-container {

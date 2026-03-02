@@ -120,26 +120,6 @@
             <aside id="sidebar">
                 <!-- Sidebar Header -->
                 <div class="sidebar-header">
-                    <!-- Profile Avatar with Popup -->
-                    <div class="profile-menu-wrapper" id="profile-menu-wrapper">
-                        <button class="sidebar-profile-avatar" id="sidebar-profile-btn" title="Account">
-                            <span id="user-initial">U</span>
-                        </button>
-                        <!-- Sign-Out Popup -->
-                        <div class="profile-popup hidden" id="profile-popup">
-                            <div class="profile-popup-info">
-                                <div class="popup-avatar"><span id="popup-user-initial">U</span></div>
-                                <div class="popup-user-name" id="popup-user-name">Researcher</div>
-                            </div>
-                            <div class="profile-popup-divider"></div>
-                            <button class="profile-popup-item" id="popup-profile-btn">
-                                <i class="fas fa-user-circle"></i> View Profile
-                            </button>
-                            <button class="profile-popup-item danger" id="popup-signout-btn">
-                                <i class="fas fa-sign-out-alt"></i> Sign Out
-                            </button>
-                        </div>
-                    </div>
                     <button class="new-chat-btn" id="new-chat-sidebar-btn">
                         <i class="fas fa-plus"></i>
                         <span>New Research</span>
@@ -152,8 +132,16 @@
                 <!-- Sidebar Body -->
                 <div class="sidebar-body">
                     <div id="sidebar-main-view" class="sidebar-view active">
+                        <!-- Navigation Menu Items -->
+                        <div class="nav-menu">
+                            <div class="nav-item"><i class="fas fa-search"></i> <span>Search chats</span></div>
+                            <div class="nav-item"><i class="fas fa-image"></i> <span>Images</span></div>
+                            <div class="nav-item"><i class="fas fa-th-large"></i> <span>Apps</span></div>
+                            <div class="nav-item"><i class="fas fa-terminal"></i> <span>Codex</span></div>
+                        </div>
+
                         <div class="history-section">
-                            <div class="history-label">Previous sessions</div>
+                            <div class="history-label">Your Research</div>
                             <div class="history-list" id="history-list"></div>
                         </div>
                     </div>
@@ -204,10 +192,25 @@
                     </div>
                 </div>
                 <div class="sidebar-footer">
-                    <button id="clear-history-btn" class="sidebar-action-btn danger hidden">
-                        <i class="fas fa-trash-alt"></i>
-                        <span>Clear History</span>
-                    </button>
+                    <div class="profile-menu-wrapper" id="profile-menu-wrapper">
+                        <button class="sidebar-user-footer" id="sidebar-profile-btn">
+                            <div class="footer-avatar" id="user-initial">U</div>
+                            <div class="footer-user-details">
+                                <div class="footer-user-name" id="popup-user-name">Researcher</div>
+                                <div class="footer-user-status">Free</div>
+                            </div>
+                            <button class="upgrade-btn">Upgrade</button>
+                        </button>
+                        <!-- Sign-Out Popup -->
+                        <div class="profile-popup hidden" id="profile-popup">
+                            <button class="profile-popup-item" id="popup-profile-btn">
+                                <i class="fas fa-user-circle"></i> View Profile
+                            </button>
+                            <button class="profile-popup-item danger" id="popup-signout-btn">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </aside>
 
