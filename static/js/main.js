@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!aiMessageContent) {
                         const bubble = document.createElement('div');
                         bubble.classList.add('chat-bubble', 'ai');
-                        bubble.innerHTML = `<div class="message-wrap"><div class="message-content"></div></div>`;
+                        bubble.innerHTML = `<div class="avatar">🐌</div><div class="message-wrap"><div class="message-content"></div></div>`;
                         chatMessages.appendChild(bubble);
                         aiMessageContent = bubble.querySelector('.message-content');
                     }
@@ -694,9 +694,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${sender === 'ai' || sender === 'assistant' ? 'ai' : 'user'}`;
 
+        let avatarHTML = '👤';
+        if (sender === 'ai' || sender === 'assistant') {
+            avatarHTML = '🐌';
+        } else if (currentUser && currentUser.avatarUrl) {
+            avatarHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:16px; object-fit:cover; display:block;">`;
+        }
+
         const isAI = sender === 'ai' || sender === 'assistant';
 
         bubble.innerHTML = `
+            <div class="avatar" ${!isAI && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div>
             <div class="message-wrap">
                 <div class="message-content">${isAI ? marked.parse(text) : text}</div>
                 ${isAI ? `
