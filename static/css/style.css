@@ -391,9 +391,9 @@ body::before {
     box-shadow: 0 4px 16px rgba(var(--accent-rgb, 99, 102, 241), 0.25);
 }
 
-/* Chat bubble AI glow */
+/* Chat bubble AI line removed as requested */
 .chat-bubble.ai .message-wrap {
-    border-left: 2px solid rgba(var(--accent-rgb, 99, 102, 241), 0.4);
+    border-left: none;
 }
 
 /* Typing indicator dots use theme color */
@@ -1200,15 +1200,30 @@ body[data-anim="minimal"] #sidebar {
     width: 100%;
     padding: 12px;
     border-radius: 12px;
-    background: transparent;
-    border: none;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.4s var(--spring-bouncy);
     text-align: left;
+    animation: profileEntrance 1s 0.8s var(--spring-bouncy) both;
 }
 
 .sidebar-user-footer:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(var(--accent-rgb), 0.15);
+}
+
+@keyframes profileEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .footer-avatar {
@@ -1933,9 +1948,10 @@ body.extreme-opt .chat-bubble {
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 14px;
-    padding: 4px;
-    transition: color 0.2s ease, transform 0.2s ease;
+    font-size: 18px;
+    /* Increased from 14px */
+    padding: 6px;
+    transition: all 0.3s var(--fluid-fast);
 }
 
 .action-btn:hover {
