@@ -12,8 +12,8 @@ class ParticleNetwork {
 
         // Configuration
         this.density = window.innerWidth < 768 ? 60 : 120; // More particles (lights)
-        this.connectionDistance = 150; // Increased connectivity distance
-        this.interactionRadius = 200; // Larger mouse attraction radius
+        this.connectionDistance = 180; // Even broader connectivity for a denser network
+        this.interactionRadius = 250; // Larger mouse attraction radius for better flow
         this.baseSpeed = 0.4;
 
         this.init();
