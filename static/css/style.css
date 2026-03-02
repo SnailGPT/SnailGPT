@@ -1210,8 +1210,20 @@ body[data-anim="minimal"] #sidebar {
 
 .sidebar-user-footer:hover {
     background: rgba(255, 255, 255, 0.08);
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(var(--accent-rgb), 0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 20px rgba(var(--accent-rgb), 0.2);
+    animation: profileHoverPulse 2s infinite ease-in-out;
+}
+
+@keyframes profileHoverPulse {
+
+    0%,
+    100% {
+        transform: translateY(-4px) scale(1.02);
+    }
+
+    50% {
+        transform: translateY(-8px) scale(1.04);
+    }
 }
 
 @keyframes profileEntrance {
@@ -1776,7 +1788,8 @@ body[data-anim="minimal"] #sidebar {
 }
 
 .chat-bubble.user {
-    justify-content: flex-end;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
 }
 
 .chat-bubble.ai {
@@ -1948,15 +1961,17 @@ body.extreme-opt .chat-bubble {
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 18px;
-    /* Increased from 14px */
+    font-size: 20px;
     padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.3s var(--fluid-fast);
 }
 
 .action-btn:hover {
     color: var(--text-primary);
-    transform: scale(1.1);
+    transform: scale(1.2);
 }
 
 .chat-bubble.ai .message-content::after {
@@ -2444,45 +2459,7 @@ body.extreme-opt #logo-text {
     }
 }
 
-/* ================= MESSAGE ACTIONS (ChatGPT Style) ================= */
-.message-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 4px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    padding-left: 4px;
-}
-
-.chat-bubble.ai:hover .message-actions {
-    opacity: 1;
-}
-
-.action-btn {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.4);
-    cursor: pointer;
-    font-size: 13px;
-    padding: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.action-btn:hover {
-    color: white;
-    transform: scale(1.1);
-}
-
-.action-btn.active {
-    color: var(--primary) !important;
-}
-
-.action-btn i {
-    pointer-events: none;
-}
+/* Message Actions consolidated above */
 
 /* ================= PLUS MENU (Image Gen) ================= */
 .plus-menu {
@@ -3100,9 +3077,8 @@ body {
 
 /* ── CHAT BUBBLES: AI — vivid tinted glass ── */
 .chat-bubble.ai .message-wrap {
-    background: rgba(var(--accent-rgb, 99, 102, 241), 0.10) !important;
-    border: 1px solid rgba(var(--accent-rgb, 99, 102, 241), 0.2) !important;
-    border-left: 3px solid var(--primary, #6366f1) !important;
+    background: transparent !important;
+    border: none !important;
 }
 
 /* ── DROPDOWN OPTIONS PANEL ── */
@@ -3245,9 +3221,7 @@ body::before {
         rgba(10, 11, 18, 0.88);
 }
 
-.chat-bubble.ai .message-wrap {
-    background: rgba(var(--accent-rgb, 99, 102, 241), 0.06) !important;
-}
+/* AI Wrap background cleared */
 
 .dropdown-options {
     background:
