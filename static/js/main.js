@@ -240,6 +240,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadSessions();
 
+        // New Research Button Logic
+        const newChatBtn = document.getElementById('new-chat-sidebar-btn');
+        if (newChatBtn) {
+            newChatBtn.onclick = () => {
+                currentSessionId = null;
+                chatHistory = [];
+                localStorage.removeItem('last_session_id');
+                renderWelcomeScreen();
+                loadSessions();
+            };
+        }
+
         // Restore last session if exists
         const lastSessionId = localStorage.getItem('last_session_id');
         if (lastSessionId && !currentSessionId) {
@@ -476,8 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentSessionId = null;
             localStorage.removeItem('last_session_id');
             chatHistory = [];
-            if (chatMessages) chatMessages.innerHTML = '';
-            chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
+            renderWelcomeScreen();
             clearHistoryBtn.classList.add('hidden');
             if (historyList) historyList.innerHTML = '';
         };
@@ -601,10 +612,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const sessions = await DB.getConversations(currentUser.email);
         historyList.innerHTML = '';
 
+        // --- DASHBOARD: Recent Research ---
+        const dashboard = document.getElementById('recent-research-dashboard');
+        const grid = document.getElementById('recent-research-grid');
+        if (grid) grid.innerHTML = '';
+        if (dashboard) dashboard.classList.toggle('hidden', sessions.length === 0);
+
         const clearBtn = document.getElementById('clear-history-btn');
         if (clearBtn) clearBtn.classList.toggle('hidden', sessions.length === 0);
 
-        sessions.forEach(s => {
+        sessions.forEach((s, index) => {
+            // 1. Populate Sidebar
             const item = document.createElement('div');
             item.className = `history-item ${s.id === currentSessionId ? 'active' : ''}`;
             item.dataset.id = s.id;
@@ -618,12 +636,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             `;
 
-            // Navigation
             item.onclick = (e) => {
                 if (e.target.closest('.delete-session-btn')) return;
                 if (e.target.closest('.session-title-input')) return;
                 loadSession(s.id);
             };
+
+            // 2. Populate Dashboard Grid (Top 4 most recent)
+            if (grid && index < 4) {
+                const card = document.createElement('div');
+                card.className = 'research-card';
+                const date = new Date(s.updated_at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                card.innerHTML = `
+                    <div class="research-card-icon"><i class="fas fa-comment-alt"></i></div>
+                    <div class="research-card-title">${s.title}</div>
+                    <div class="research-card-date">${date}</div>
+                `;
+                card.onclick = () => loadSession(s.id);
+                grid.appendChild(card);
+            }
 
             // Individual Delete
             const delBtn = item.querySelector('.delete-session-btn');
@@ -636,8 +667,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (currentSessionId === s.id) {
                                 currentSessionId = null;
                                 chatHistory = [];
-                                chatMessages.innerHTML = '<div class="welcome-message"><h1>How can I assist your research?</h1></div>';
                                 localStorage.removeItem('last_session_id');
+                                renderWelcomeScreen();
                             }
                             loadSessions();
                         }
@@ -661,8 +692,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newTitle = titleInput.value.trim();
                 if (newTitle && newTitle !== s.title) {
                     s.title = newTitle;
-                    // Note: In a full featured app, we'd have a specific rename API.
-                    // Here we reuse saveConversation which handles updates.
                     const fullSession = await DB.getConversation(s.id);
                     if (fullSession) {
                         fullSession.title = newTitle;
@@ -684,6 +713,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             historyList.appendChild(item);
         });
+    }
+
+    function renderWelcomeScreen() {
+        if (!chatMessages) return;
+        chatMessages.innerHTML = `
+            <div class="welcome-message">
+                <h1>How can I assist your research?</h1>
+                <div id="recent-research-dashboard" class="recent-research-dashboard hidden">
+                    <div class="dashboard-header">Recent Research</div>
+                    <div id="recent-research-grid" class="recent-research-grid"></div>
+                </div>
+            </div>
+        `;
     }
 
     async function loadSession(id) {
