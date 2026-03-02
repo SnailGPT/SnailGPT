@@ -464,27 +464,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (openSettingsBtn) openSettingsBtn.onclick = () => toggleSettings(true);
     if (backToMainBtn) backToMainBtn.onclick = () => toggleSettings(false);
 
-    if (sidebarProfileBtn && profilePopup) {
+    if (sidebarProfileBtn) {
         sidebarProfileBtn.onclick = (e) => {
             e.stopPropagation();
-            profilePopup.classList.toggle('hidden');
+            router.navigate('profile');
         };
     }
 
-    if (popupProfileBtn) popupProfileBtn.onclick = (e) => {
-        e.stopPropagation();
-        router.navigate('profile');
-        profilePopup.classList.add('hidden');
-    };
-    if (popupSignoutBtn) popupSignoutBtn.onclick = (e) => {
-        e.stopPropagation();
-        DB.logout();
-        currentUser = null;
-        currentSessionId = null;
-        localStorage.removeItem('last_session_id');
-        profilePopup.classList.add('hidden');
-        router.navigate('home');
-    };
+    const logoutBtnLarge = document.getElementById('logout-btn-large');
+    if (logoutBtnLarge) {
+        logoutBtnLarge.onclick = () => {
+            DB.logout();
+            currentUser = null;
+            currentSessionId = null;
+            localStorage.removeItem('last_session_id');
+            router.navigate('home');
+        };
+    }
     document.addEventListener('click', (e) => {
         if (profilePopup && !profilePopup.classList.contains('hidden')) {
             const wrapper = document.getElementById('profile-menu-wrapper');
@@ -504,9 +500,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ---- Clear History ----
-    const clearHistoryBtn = document.getElementById('clear-history-btn');
-    if (clearHistoryBtn) {
-        clearHistoryBtn.onclick = async () => {
+    const clearAllBtn = document.getElementById('clear-all-chats');
+    if (clearAllBtn) {
+        clearAllBtn.onclick = async () => {
             if (!currentUser) return;
             if (!confirm('Delete all chat history? This cannot be undone.')) return;
             await DB.clearConversations(currentUser.email);
@@ -514,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('last_session_id');
             chatHistory = [];
             renderWelcomeScreen();
-            clearHistoryBtn.classList.add('hidden');
             if (historyList) historyList.innerHTML = '';
         };
     }
@@ -758,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('empty-chat');
         chatMessages.innerHTML = `
             <div class="welcome-message">
-                <h1>How can I assist your research?</h1>
+                <h1>Looking for some answers?</h1>
                 <div id="recent-research-dashboard" class="recent-research-dashboard hidden">
                     <div class="dashboard-header">Recent Research</div>
                     <div id="recent-research-grid" class="recent-research-grid"></div>
@@ -911,7 +906,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (plusBtn) plusBtn.onclick = (e) => { e.stopPropagation(); plusMenu?.classList.toggle('hidden'); };
     document.addEventListener('click', () => { if (plusMenu) plusMenu.classList.add('hidden'); });
     const navImg = document.getElementById('nav-image-gen');
-    if (navImg) navImg.onclick = () => { /* Handle image gen navigation if needed or remove if unused */ };
+    if (navImg) navImg.onclick = () => window.location.href = '/media';
 
     // --- Mobile Menu Toggle ---
     const mobileMenuBtn = document.getElementById('mobile-menu-toggle');

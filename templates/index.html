@@ -135,7 +135,7 @@
 
 
                         <div class="history-section">
-                            <div class="history-label">Your Research</div>
+                            <div class="history-label">PREVIOUS SESSIONS</div>
                             <div class="history-list" id="history-list"></div>
                         </div>
                     </div>
@@ -193,13 +193,10 @@
                                 <div class="footer-user-name" id="footer-user-name">Researcher</div>
                             </div>
                         </div>
-                        <!-- Sign-Out Popup -->
-                        <div class="profile-popup hidden" id="profile-popup">
-                            <button class="profile-popup-item" id="popup-profile-btn">
-                                <i class="fas fa-cog"></i> Settings & Profile
-                            </button>
-                            <button class="profile-popup-item danger" id="popup-signout-btn">
-                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                        <div class="sidebar-action-container">
+                            <button id="clear-all-chats" class="sidebar-action-btn danger">
+                                <i class="fas fa-trash"></i>
+                                <span>Clear History</span>
                             </button>
                         </div>
                     </div>
@@ -213,15 +210,15 @@
                         <button id="mobile-menu-toggle" class="mobile-only-btn"><i class="fas fa-bars"></i></button>
                         <div class="header-avatar">🐌</div>
                         <div id="logo-text"
-                            style="font-family:'Orbitron', sans-serif; font-weight:900; background:var(--primary-gradient); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-size:1.5rem; letter-spacing:1px;">
-                            SNAIL<span>GPT</span></div>
+                            style="font-family:'Orbitron', sans-serif; font-weight:900; color: white; font-size: 1.8rem; letter-spacing: 4px;">
+                            SNAILGPT</div>
                     </div>
-                    <div class="mode-badge">VERCEL-SECURE</div>
+                    <div class="mode-badge">ONLINE MODE</div>
                 </header>
                 <div id="chat-window">
                     <div id="chat-messages">
                         <div class="welcome-message">
-                            <h1>How can I assist your research?</h1>
+                            <h1>Looking for some answers?</h1>
                             <div id="recent-research-dashboard" class="recent-research-dashboard hidden">
                                 <div class="dashboard-header">Recent Research</div>
                                 <div id="recent-research-grid" class="recent-research-grid"></div>
@@ -241,7 +238,7 @@
                             <div class="menu-item" id="nav-image-gen"><i class="fas fa-image"></i> <span>Generate
                                     Image</span></div>
                         </div>
-                        <textarea id="user-input" placeholder="Enter query..." rows="1"></textarea>
+                        <textarea id="user-input" placeholder="Ask anything" rows="1"></textarea>
                         <div class="input-actions">
                             <button id="stop-btn" class="hidden"><i class="fas fa-stop"></i></button>
                             <button id="send-btn"><i class="fas fa-arrow-up"></i></button>
