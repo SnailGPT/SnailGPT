@@ -986,11 +986,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const plusBtn = document.getElementById('plus-btn');
-    const plusMenu = document.getElementById('plus-menu');
-    if (plusBtn) plusBtn.onclick = (e) => { e.stopPropagation(); plusMenu?.classList.toggle('hidden'); };
-    document.addEventListener('click', () => { if (plusMenu) plusMenu.classList.add('hidden'); });
-    const navImg = document.getElementById('nav-image-gen');
-    if (navImg) navImg.onclick = () => window.location.href = '/media';
+    if (plusBtn) {
+        plusBtn.style.cursor = 'pointer'; // Make it pointer since it's now just an icon
+    }
 
     // --- Mobile Menu Toggle ---
     const mobileMenuBtn = document.getElementById('mobile-menu-toggle');

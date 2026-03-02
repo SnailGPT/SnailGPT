@@ -2015,11 +2015,11 @@ body[data-anim="minimal"] #input-container {
 
 .input-wrapper {
     width: 100%;
-    max-width: 850px;
+    max-width: 950px;
     background: #0a0a0d;
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 32px;
-    padding: 10px 24px;
+    padding: 16px 28px;
     /* Slightly tighter */
     display: flex;
     align-items: center;
@@ -2070,9 +2070,11 @@ body[data-anim="minimal"] #input-container {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    font-size: 18px;
-    cursor: default;
-    padding-bottom: 12px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #send-btn {

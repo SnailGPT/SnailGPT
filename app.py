@@ -256,49 +256,6 @@ def generate_title(history):
 def index():
     return render_template("index.html", snail_mode="online")
 
-@app.route("/media")
-def media_page():
-    return render_template("media.html")
-
-@app.route("/generate_image", methods=["POST"])
-def generate_image():
-    try:
-        data = request.get_json()
-        prompt = data.get("prompt", "")
-        
-        if not prompt:
-            return jsonify({"error": "No prompt provided"}), 400
-
-        # Specialized Client for Image Gen
-        # Using the same HF_TOKEN as chat
-        img_client = InferenceClient(
-            provider="replicate",
-            api_key=API_KEY
-        )
-
-        image = img_client.text_to_image(
-            prompt,
-            model="ByteDance/SDXL-Lightning"
-        )
-        
-        # Save Image to /tmp (writable in Vercel)
-        filename = f"gen_{uuid.uuid4()}.png"
-        save_dir = os.path.join("/tmp", "generated_images")
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, filename)
-        
-        image.save(save_path)
-        
-        return jsonify({"image_url": f"/api/images/{filename}"})
-
-    except Exception as e:
-        print(f"Image Gen Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/images/<filename>")
-def serve_generated_image(filename):
-    from flask import send_from_directory
-    return send_from_directory(os.path.join("/tmp", "generated_images"), filename)
 
 @app.route("/chat", methods=["POST"])
 def chat():
