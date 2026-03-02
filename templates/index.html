@@ -119,13 +119,14 @@
             <div id="sidebar-overlay" class="sidebar-overlay"></div>
             <aside id="sidebar">
                 <!-- Sidebar Header -->
-                <div class="sidebar-header">
-                    <button class="new-chat-btn" id="new-chat-sidebar-btn">
+                <div class="sidebar-header" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <button class="sidebar-action-btn primary" id="new-chat-sidebar-btn">
                         <i class="fas fa-plus"></i>
                         <span>New Research</span>
                     </button>
-                    <button id="open-settings-btn" class="settings-cog-btn" title="Settings">
+                    <button id="open-settings-btn" class="sidebar-action-btn primary" title="Settings">
                         <i class="fas fa-cog"></i>
+                        <span>Settings</span>
                     </button>
                 </div>
 
@@ -186,18 +187,19 @@
                     </div>
                 </div>
                 <div class="sidebar-footer">
+                    <div class="sidebar-action-container" style="margin-bottom: 8px;">
+                        <button id="clear-all-chats" class="sidebar-action-btn tertiary danger">
+                            <i class="fas fa-trash"></i>
+                            <span>Clear History</span>
+                        </button>
+                    </div>
                     <div class="profile-menu-wrapper" id="profile-menu-wrapper">
-                        <div class="sidebar-user-footer" id="sidebar-profile-btn" style="cursor: pointer;">
+                        <div class="sidebar-user-footer" id="sidebar-profile-btn"
+                            style="cursor: pointer; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px;">
                             <div class="footer-avatar" id="user-initial">U</div>
                             <div class="footer-user-details">
                                 <div class="footer-user-name" id="footer-user-name">Researcher</div>
                             </div>
-                        </div>
-                        <div class="sidebar-action-container">
-                            <button id="clear-all-chats" class="sidebar-action-btn danger">
-                                <i class="fas fa-trash"></i>
-                                <span>Clear History</span>
-                            </button>
                         </div>
                     </div>
                 </div>

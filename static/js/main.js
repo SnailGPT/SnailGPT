@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         profile: document.getElementById('profile-page')
     };
 
+    // Message Action Listeners moved below elements definition
+
     // Initialize Interactive Background
     let bgNetwork = null;
     const particleCanvas = document.getElementById('particle-canvas');
@@ -63,6 +65,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById('stop-btn');
     const typingIndicator = document.getElementById('typing-indicator');
     const historyList = document.getElementById('history-list');
+
+    // --- Message Action Listeners ---
+    if (chatMessages) {
+        chatMessages.onclick = async (e) => {
+            const btn = e.target.closest('.action-btn');
+            if (!btn) return;
+
+            const bubble = btn.closest('.chat-bubble');
+            const contentEl = bubble.querySelector('.message-content');
+            const textContent = contentEl.innerText;
+
+            if (btn.classList.contains('copy-btn')) {
+                navigator.clipboard.writeText(textContent);
+                const icon = btn.querySelector('i');
+                const oldClass = icon.className;
+                icon.className = 'fas fa-check';
+                setTimeout(() => icon.className = oldClass, 1500);
+            }
+
+            if (btn.classList.contains('like-btn')) {
+                btn.classList.toggle('active');
+                bubble.querySelector('.dislike-btn').classList.remove('active');
+            }
+
+            if (btn.classList.contains('dislike-btn')) {
+                btn.classList.toggle('active');
+                bubble.querySelector('.like-btn').classList.remove('active');
+            }
+
+            if (btn.classList.contains('retry-btn')) {
+                // Find last user prompt
+                let lastPrompt = "";
+                let userMsgIndex = -1;
+                for (let i = chatHistory.length - 1; i >= 0; i--) {
+                    if (chatHistory[i].role === 'user') {
+                        lastPrompt = chatHistory[i].content;
+                        userMsgIndex = i;
+                        break;
+                    }
+                }
+
+                if (lastPrompt) {
+                    // Remove last AI message from history
+                    if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'assistant') {
+                        chatHistory.pop();
+                    }
+                    // Remove the user prompt from history as sendMessage will append it again
+                    if (userMsgIndex !== -1) {
+                        chatHistory.splice(userMsgIndex, 1);
+                    }
+
+                    // Clear the UI bubbles for this turn (AI bubble and User bubble)
+                    if (chatMessages.lastElementChild && chatMessages.lastElementChild.classList.contains('ai')) {
+                        chatMessages.lastElementChild.remove();
+                    }
+                    if (chatMessages.lastElementChild && chatMessages.lastElementChild.classList.contains('user')) {
+                        chatMessages.lastElementChild.remove();
+                    }
+
+                    userInput.value = lastPrompt;
+                    sendMessage();
+                }
+            }
+        };
+    }
 
     // Auth section refs
     const loginSection = document.getElementById('login-section');
@@ -100,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             document.body.dataset.currentPage = page;
+            localStorage.setItem('snail_last_page', page);
 
             // Performance: Only run particles on home page
             if (bgNetwork) {
@@ -118,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSection.classList.add('hidden');
                 signupSection.classList.remove('hidden');
             }
+            localStorage.setItem('snail_auth_mode', mode);
         }
     };
     window.router = router; // Global access for inline onclicks
@@ -478,6 +547,8 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = null;
             currentSessionId = null;
             localStorage.removeItem('last_session_id');
+            localStorage.removeItem('snail_last_page');
+            localStorage.removeItem('snail_auth_mode');
             router.navigate('home');
         };
     }
@@ -490,14 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const btnLogout = document.getElementById('logout-btn-large');
-    if (btnLogout) btnLogout.onclick = () => {
-        DB.logout();
-        currentUser = null;
-        currentSessionId = null;
-        localStorage.removeItem('last_session_id');
-        router.navigate('home');
-    };
 
     // ---- Clear History ----
     const clearAllBtn = document.getElementById('clear-all-chats');
@@ -614,16 +677,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function appendMessage(sender, text) {
         if (!chatMessages) return;
         const bubble = document.createElement('div');
-        bubble.classList.add('chat-bubble', sender);
+        bubble.className = `chat-bubble ${sender === 'ai' || sender === 'assistant' ? 'ai' : 'user'}`;
 
         let avatarHTML = '👤';
-        if (sender === 'ai') {
+        if (sender === 'ai' || sender === 'assistant') {
             avatarHTML = '🐌';
         } else if (currentUser && currentUser.avatarUrl) {
             avatarHTML = `<img src="${currentUser.avatarUrl}" style="width:100%; height:100%; border-radius:16px; object-fit:cover; display:block;">`;
         }
 
-        bubble.innerHTML = `<div class="avatar" ${sender === 'user' && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div><div class="message-wrap"><div class="message-content">${sender === 'ai' ? marked.parse(text) : text}</div></div>`;
+        const isAI = sender === 'ai' || sender === 'assistant';
+
+        bubble.innerHTML = `
+            <div class="avatar" ${!isAI && currentUser && currentUser.avatarUrl ? 'style="padding:0; background:transparent;"' : ''}>${avatarHTML}</div>
+            <div class="message-wrap">
+                <div class="message-content">${isAI ? marked.parse(text) : text}</div>
+                ${isAI ? `
+                <div class="message-actions">
+                    <button class="action-btn copy-btn" title="Copy"><i class="far fa-copy"></i></button>
+                    <button class="action-btn like-btn" title="Like"><i class="far fa-thumbs-up"></i></button>
+                    <button class="action-btn dislike-btn" title="Dislike"><i class="far fa-thumbs-down"></i></button>
+                    <button class="action-btn retry-btn" title="Regenerate"><i class="fas fa-redo"></i></button>
+                </div>` : ''}
+            </div>`;
+
         chatMessages.appendChild(bubble);
         const welcome = document.querySelector('.welcome-message');
         if (welcome) welcome.remove();
@@ -631,8 +708,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function scrollToBottom() {
-        const win = document.getElementById('chat-window');
-        if (win) win.scrollTo({ top: win.scrollHeight, behavior: 'smooth' });
+        setTimeout(() => {
+            const win = document.getElementById('chat-window');
+            if (win) {
+                win.scrollTo({
+                    top: win.scrollHeight + 40, // Scroll 40px further as requested
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
     }
 
     function toggleTyping(show) {
@@ -935,18 +1019,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    if (btnNewChat) {
-        const originalNewChat = btnNewChat.onclick;
-        btnNewChat.onclick = () => {
-            originalNewChat();
-            if (window.innerWidth <= 768) toggleMobileMenu(false);
-        };
+    // --- Init ---
+    const lastPage = localStorage.getItem('snail_last_page');
+    const authMode = localStorage.getItem('snail_auth_mode') || 'login';
+
+    if (currentUser) {
+        if (lastPage === 'profile') {
+            router.navigate('profile');
+        } else {
+            router.navigate('app');
+        }
+    } else {
+        if (lastPage === 'auth') {
+            router.navigate('auth');
+            router.toggleAuth(authMode);
+        } else {
+            router.navigate('home');
+        }
     }
 
-    // --- Init ---
-    if (currentUser) {
-        router.navigate('app');
-    } else {
-        router.navigate('home');
+    // Fixed btnNewChat reference
+    const sidebarNewChat = document.getElementById('new-chat-sidebar-btn');
+    if (sidebarNewChat) {
+        const originalNewChat = sidebarNewChat.onclick;
+        sidebarNewChat.onclick = () => {
+            if (originalNewChat) originalNewChat();
+            if (window.innerWidth <= 768) toggleMobileMenu(false);
+        };
     }
 });
