@@ -343,10 +343,61 @@ document.addEventListener('DOMContentLoaded', () => {
         const profRole = document.querySelector('.profile-role');
         const fileInput = document.getElementById('prof-avatar-file');
         const revertBtn = document.getElementById('prof-avatar-revert');
+        const statSessions = document.getElementById('stat-sessions');
+        const statJoined = document.getElementById('stat-joined');
+
+        // Refresh current user data from DB to get latest session count
+        if (currentUser) {
+            DB.getUserStats(currentUser.email).then(stats => {
+                if (stats) {
+                    // Update current user cache
+                    currentUser.totalSessions = stats.totalSessions;
+                    currentUser.createdAt = stats.createdAt;
+                    currentUser.isVerified = stats.isVerified;
+                    DB.setCurrentUser(currentUser);
+
+                    // Update UI labels live
+                    if (statSessions) statSessions.textContent = stats.totalSessions || 0;
+                    if (statJoined && stats.createdAt) {
+                        const date = new Date(stats.createdAt * 1000);
+                        statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    }
+
+                    const verifiedChip = document.querySelector('.stat-chip .fa-shield-alt')?.parentElement;
+                    if (verifiedChip) {
+                        if (stats.isVerified) {
+                            verifiedChip.innerHTML = '<i class="fas fa-shield-alt"></i> Verified';
+                            verifiedChip.style.opacity = '1';
+                        } else {
+                            verifiedChip.innerHTML = '<i class="fas fa-shield-alt"></i> Not Verified';
+                            verifiedChip.style.opacity = '0.6';
+                        }
+                    }
+                }
+            });
+        }
 
         if (profUser) profUser.value = currentUser.username;
         if (profEmail) profEmail.value = currentUser.email;
         if (fileInput) fileInput.value = ''; // Reset input
+
+        // Initial Stats Update (from cache)
+        if (statSessions) statSessions.textContent = currentUser.totalSessions || 0;
+        if (statJoined && currentUser.createdAt) {
+            const date = new Date(currentUser.createdAt * 1000);
+            statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        const initialVerifiedChip = document.querySelector('.stat-chip .fa-shield-alt')?.parentElement;
+        if (initialVerifiedChip) {
+            if (currentUser.isVerified) {
+                initialVerifiedChip.innerHTML = '<i class="fas fa-shield-alt"></i> Verified';
+                initialVerifiedChip.style.opacity = '1';
+            } else {
+                initialVerifiedChip.innerHTML = '<i class="fas fa-shield-alt"></i> Not Verified';
+                initialVerifiedChip.style.opacity = '0.6';
+            }
+        }
 
         let pendingAvatar = currentUser.avatarUrl || null;
 
@@ -581,6 +632,33 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendMessage() {
         const message = userInput.value.trim();
         if (!message) return;
+
+        // Command handling (Verify)
+        if (message.startsWith('/verify ')) {
+            const targetEmail = message.replace('/verify ', '').trim();
+            if (!targetEmail) return;
+
+            if (currentUser?.email !== 'kartik.ps.mishra07@gmail.com') {
+                appendMessage('ai', "❌ This command is restricted to the administrator (Kartik).");
+                userInput.value = '';
+                return;
+            }
+
+            appendMessage('user', message);
+            userInput.value = '';
+            toggleTyping(true);
+
+            try {
+                const result = await DB.verifyUser(currentUser.email, targetEmail);
+                toggleTyping(false);
+                const status = result.isVerified ? "VERIFIED" : "UNVERIFIED";
+                appendMessage('ai', `✅ User **${targetEmail}** has been successfully marked as **${status}**.`);
+            } catch (err) {
+                toggleTyping(false);
+                appendMessage('ai', `❌ Error: ${err.message}`);
+            }
+            return;
+        }
 
         if (!currentSessionId) {
             currentSessionId = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);

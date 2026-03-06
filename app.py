@@ -66,9 +66,29 @@ def init_db():
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 recovery_code TEXT NOT NULL,
-                avatar_url TEXT
+                avatar_url TEXT,
+                total_sessions INTEGER DEFAULT 0,
+                created_at REAL,
+                is_verified INTEGER DEFAULT 0
             )
         ''')
+        # Add columns if they don't exist for existing databases
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN total_sessions INTEGER DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN created_at REAL')
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass
+        
+        # Backfill created_at for existing users who don't have it
+        conn.execute('UPDATE users SET created_at = ? WHERE created_at IS NULL', (time.time(),))
+        conn.commit()
         conn.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
@@ -287,6 +307,12 @@ def chat():
                 # Check if we need to set/generate a title
                 db = get_db()
                 row = db.execute('SELECT title FROM sessions WHERE id = ?', (session_id,)).fetchone()
+                
+                # If it's a new session (not in DB yet), increment user's total_sessions counter
+                if not row:
+                    db.execute('UPDATE users SET total_sessions = total_sessions + 1 WHERE email = ?', (user_email,))
+                    db.commit()
+                
                 title = row['title'] if row else generate_title(history)
                 
                 save_session_to_db(user_email, session_id, title, history)
@@ -382,17 +408,21 @@ def api_register():
 
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     recovery_code = str(uuid.uuid4().int)[:6]  # 6-digit code
+    created_at = time.time()
 
     db.execute(
-        'INSERT INTO users (email, username, password_hash, recovery_code) VALUES (?, ?, ?, ?)',
-        (email, username, password_hash, recovery_code)
+        'INSERT INTO users (email, username, password_hash, recovery_code, created_at, total_sessions) VALUES (?, ?, ?, ?, ?, ?)',
+        (email, username, password_hash, recovery_code, created_at, 0)
     )
     db.commit()
 
     return jsonify({
         'email': email,
         'username': username,
-        'recoveryCode': recovery_code
+        'recoveryCode': recovery_code,
+        'totalSessions': 0,
+        'createdAt': created_at,
+        'isVerified': 0
     }), 201
 
 
@@ -420,7 +450,10 @@ def api_login():
         'email': row['email'],
         'username': row['username'],
         'recoveryCode': row['recovery_code'],
-        'avatarUrl': row['avatar_url']
+        'avatarUrl': row['avatar_url'],
+        'totalSessions': row['total_sessions'] or 0,
+        'createdAt': row['created_at'],
+        'isVerified': row['is_verified'] or 0
     })
 
 
@@ -474,8 +507,52 @@ def api_user_update():
         'email': updated['email'],
         'username': updated['username'],
         'recoveryCode': updated['recovery_code'],
-        'avatarUrl': updated['avatar_url']
+        'avatarUrl': updated['avatar_url'],
+        'totalSessions': updated['total_sessions'] or 0,
+        'createdAt': updated['created_at'],
+        'isVerified': updated['is_verified'] or 0
     })
+
+
+@app.route('/api/user/stats', methods=['GET'])
+def api_user_stats():
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
+    
+    db = get_db()
+    row = db.execute('SELECT total_sessions, created_at FROM users WHERE email = ?', (email,)).fetchone()
+    if row:
+        return jsonify({
+            'totalSessions': row['total_sessions'] or 0,
+            'createdAt': row['created_at'],
+            'isVerified': row['is_verified'] or 0
+        })
+    return jsonify({'error': 'User not found'}), 404
+
+
+@app.route('/api/user/verify', methods=['POST'])
+def api_user_verify():
+    data = request.get_json()
+    admin_email = (data.get('admin_email') or '').lower()
+    target_email = (data.get('target_email') or '').lower()
+
+    if admin_email != 'kartik.ps.mishra07@gmail.com':
+        return jsonify({'error': 'Unauthorized: Only Kartik can verify researchers.'}), 403
+    
+    if not target_email:
+        return jsonify({'error': 'Target email required.'}), 400
+    
+    db = get_db()
+    user = db.execute('SELECT id, is_verified FROM users WHERE email = ?', (target_email,)).fetchone()
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+    
+    new_status = 0 if user['is_verified'] else 1
+    db.execute('UPDATE users SET is_verified = ? WHERE email = ?', (new_status, target_email))
+    db.commit()
+    
+    return jsonify({'status': 'success', 'isVerified': new_status})
 
 
 # ================= RUN =================

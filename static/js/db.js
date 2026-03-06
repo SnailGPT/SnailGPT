@@ -136,6 +136,28 @@ const DB = {
             body: JSON.stringify({ user_email: userEmail })
         });
         return res.ok;
+    },
+    /**
+     * Get user statistics.
+     * returns: { totalSessions, createdAt }
+     */
+    getUserStats: async (email) => {
+        const res = await fetch(`${API}/user/stats?email=${encodeURIComponent(email)}`);
+        if (!res.ok) return null;
+        return await res.json();
+    },
+
+    verifyUser: async (adminEmail, targetEmail) => {
+        const res = await fetch(`${API}/user/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_email: adminEmail, target_email: targetEmail })
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Verification failed');
+        }
+        return await res.json();
     }
 };
 
