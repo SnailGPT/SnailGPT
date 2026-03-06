@@ -1205,7 +1205,6 @@ body[data-anim="minimal"] #sidebar {
     cursor: pointer;
     transition: all 0.4s var(--spring-bouncy);
     text-align: left;
-    animation: profileEntrance 1s 0.8s var(--spring-bouncy) both;
 }
 
 .sidebar-user-footer:hover {
@@ -1226,17 +1225,6 @@ body[data-anim="minimal"] #sidebar {
     }
 }
 
-@keyframes profileEntrance {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 .footer-avatar {
     width: 32px;

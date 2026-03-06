@@ -88,6 +88,17 @@ def init_db():
         
         # Backfill created_at for existing users who don't have it
         conn.execute('UPDATE users SET created_at = ? WHERE created_at IS NULL', (time.time(),))
+        
+        # Initial sync for total_sessions based on existing records
+        conn.execute('''
+            UPDATE users SET total_sessions = (
+                SELECT COUNT(*) FROM sessions WHERE sessions.user_email = users.email
+            ) WHERE total_sessions = 0
+        ''')
+        
+        # Ensure Kartik is verified by default
+        conn.execute("UPDATE users SET is_verified = 1 WHERE email = 'kartik.ps.mishra07@gmail.com'")
+        
         conn.commit()
         conn.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
@@ -521,7 +532,7 @@ def api_user_stats():
         return jsonify({'error': 'Email required'}), 400
     
     db = get_db()
-    row = db.execute('SELECT total_sessions, created_at FROM users WHERE email = ?', (email,)).fetchone()
+    row = db.execute('SELECT total_sessions, created_at, is_verified FROM users WHERE email = ?', (email,)).fetchone()
     if row:
         return jsonify({
             'totalSessions': row['total_sessions'] or 0,

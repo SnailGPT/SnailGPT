@@ -357,10 +357,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     DB.setCurrentUser(currentUser);
 
                     // Update UI labels live
-                    if (statSessions) statSessions.textContent = stats.totalSessions || 0;
+                    if (statSessions) {
+                        const count = stats.totalSessions || 0;
+                        statSessions.textContent = count;
+                        // Handle pluralization manually if we want, but the HTML has "Sessions" hardcoded. Let's just update the number as requested.
+                    }
                     if (statJoined && stats.createdAt) {
                         const date = new Date(stats.createdAt * 1000);
-                        statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
                     }
 
                     const verifiedChip = document.querySelector('.stat-chip .fa-shield-alt')?.parentElement;
@@ -385,7 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statSessions) statSessions.textContent = currentUser.totalSessions || 0;
         if (statJoined && currentUser.createdAt) {
             const date = new Date(currentUser.createdAt * 1000);
-            statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            statJoined.textContent = "Joined " + date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
         }
 
         const initialVerifiedChip = document.querySelector('.stat-chip .fa-shield-alt')?.parentElement;
@@ -651,6 +663,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const result = await DB.verifyUser(currentUser.email, targetEmail);
                 toggleTyping(false);
+                if (targetEmail === currentUser.email) {
+                    currentUser.isVerified = result.isVerified;
+                    DB.setCurrentUser(currentUser);
+                }
                 const status = result.isVerified ? "VERIFIED" : "UNVERIFIED";
                 appendMessage('ai', `✅ User **${targetEmail}** has been successfully marked as **${status}**.`);
             } catch (err) {
