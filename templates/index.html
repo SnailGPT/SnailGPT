@@ -182,6 +182,13 @@
                                 <button id="extreme-opt-btn" class="opt-btn"><i class="fas fa-gauge-high"></i> Extreme
                                     Opt</button>
                             </div>
+                            <div class="setting-group" id="premium-sidebar-btn-container">
+                                <label>Premium Access</label>
+                                <button id="btn-sidebar-upgrade" class="opt-btn premium-sidebar-btn"
+                                    onclick="router.navigate('upgrade')">
+                                    <i class="fas fa-crown"></i> Get Premium
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -324,6 +331,72 @@
                 </form>
             </div>
 
+        </div>
+    </div>
+
+    <!-- 5. UPGRADE PAGE -->
+    <div id="upgrade-page" class="page-view hidden">
+        <div class="upgrade-container">
+            <div class="upgrade-header">
+                <button id="upgrade-back-app" class="back-link"><i class="fas fa-arrow-left"></i> Back to Chat</button>
+            </div>
+
+            <div class="upgrade-card premium-card">
+                <div class="card-glow"></div>
+                <div class="premium-badge"><i class="fas fa-crown"></i> Premium Access</div>
+                <h1 class="upgrade-title">Upgrade to <span class="logo-accent">Premium</span></h1>
+                <p class="upgrade-description">Unlock the full power of the AI with unlimited conversations and advanced
+                    responses.</p>
+
+                <div class="upgrade-features">
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="feature-text">
+                            <h3>Unlimited messages</h3>
+                            <p>Bypass the 10-message limit per conversation.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="feature-text">
+                            <h3>Longer conversations</h3>
+                            <p>Support for deep research and complex stories.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="feature-text">
+                            <h3>Advanced AI responses</h3>
+                            <p>More detailed and faster information processing.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="feature-text">
+                            <h3>Priority access</h3>
+                            <p>Be the first to try new experimental features.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pricing-section">
+                    <div class="price-wrap">
+                        <span class="currency">$</span>
+                        <span class="amount">10</span>
+                        <span class="period">/ month</span>
+                    </div>
+                    <p class="pricing-note">Full access, no hidden fees.</p>
+                </div>
+
+                <div class="upgrade-actions">
+                    <button id="upgrade-now-btn" class="primary-btn upgrade-cta-btn">
+                        <i class="fas fa-rocket"></i> Upgrade Now
+                    </button>
+                    <button id="continue-basic-btn" class="secondary-btn">
+                        Continue with Basic Plan
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

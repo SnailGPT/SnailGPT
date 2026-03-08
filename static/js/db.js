@@ -158,6 +158,19 @@ const DB = {
             throw new Error(data.error || 'Verification failed');
         }
         return await res.json();
+    },
+
+    upgradeUser: async (email) => {
+        const res = await fetch(`${API}/user/upgrade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Upgrade failed');
+        }
+        return await res.json();
     }
 };
 

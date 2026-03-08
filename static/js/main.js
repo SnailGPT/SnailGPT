@@ -37,7 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
         home: document.getElementById('home-page'),
         auth: document.getElementById('auth-page'),
         app: document.getElementById('app-page'),
-        profile: document.getElementById('profile-page')
+        profile: document.getElementById('profile-page'),
+        upgrade: document.getElementById('upgrade-page')
     };
 
     // Message Action Listeners moved below elements definition
@@ -177,6 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (page === 'app') initApp();
             if (page === 'profile') loadProfileData();
+            if (page === 'upgrade') {
+                if (!currentUser) return router.navigate('home');
+                loadProfileData(); // Reuse stats loading
+            }
         },
         toggleAuth: (mode) => {
             if (mode === 'login') {
@@ -307,6 +312,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 devAccessContainer.style.display = 'none';
             }
+        }
+
+        // Handle Premium Sidebar Button visibility
+        const premiumBtn = document.getElementById('premium-sidebar-btn-container');
+        if (premiumBtn) {
+            premiumBtn.style.display = currentUser.isVerified ? 'none' : 'block';
         }
 
         loadSessions();
@@ -603,6 +614,37 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // --- Upgrade Page Events ---
+    const upgradeBackApp = document.getElementById('upgrade-back-app');
+    const upgradeNowBtn = document.getElementById('upgrade-now-btn');
+    const continueBasicBtn = document.getElementById('continue-basic-btn');
+
+    if (upgradeBackApp) upgradeBackApp.onclick = () => router.navigate('app');
+    if (continueBasicBtn) continueBasicBtn.onclick = () => router.navigate('app');
+
+    if (upgradeNowBtn) {
+        upgradeNowBtn.onclick = async () => {
+            if (!currentUser) return alert("Log in first.");
+            upgradeNowBtn.disabled = true;
+            upgradeNowBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                const result = await DB.upgradeUser(currentUser.email);
+                if (result.status === 'success') {
+                    currentUser.isVerified = 1;
+                    DB.setCurrentUser(currentUser);
+                    alert("Welcome to SnailGPT Premium! 🎉\nYour account has been upgraded successfully.");
+                    router.navigate('app');
+                }
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                upgradeNowBtn.disabled = false;
+                upgradeNowBtn.innerHTML = '<i class="fas fa-rocket"></i> Upgrade Now';
+            }
+        };
+    }
+
     const logoutBtnLarge = document.getElementById('logout-btn-large');
     if (logoutBtnLarge) {
         logoutBtnLarge.onclick = () => {
@@ -727,6 +769,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const token = decoder.decode(value);
                 if (token) {
                     fullText += token;
+
+                    // Check for Paywall Message
+                    if (fullText.includes("You are currently using the Basic version of this AI")) {
+                        toggleTyping(false);
+                        renderPaywallInChat(fullText);
+                        return; // Stop processing further tokens
+                    }
+
                     if (!aiMessageContent) {
                         const bubble = document.createElement('div');
                         bubble.classList.add('chat-bubble', 'ai');
@@ -831,6 +881,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleTyping(show) {
         if (typingIndicator) typingIndicator.classList.toggle('hidden', !show);
+        scrollToBottom();
+    }
+
+    function renderPaywallInChat(text) {
+        if (!chatMessages) return;
+        const bubble = document.createElement('div');
+        bubble.classList.add('chat-bubble', 'ai');
+        bubble.innerHTML = `
+            <div class="avatar">🐌</div>
+            <div class="message-wrap">
+                <div class="paywall-block">
+                    <div class="paywall-msg-text">${text.replace(/\n/g, '<br>')}</div>
+                    <div class="paywall-btns">
+                        <button class="paywall-action-btn p-new-chat" id="paywall-new-chat">Start New Chat</button>
+                        <button class="paywall-action-btn p-upgrade" id="paywall-upgrade">Upgrade to Premium</button>
+                    </div>
+                </div>
+            </div>`;
+        chatMessages.appendChild(bubble);
+
+        // Add listeners for paywall buttons
+        const newChatBtn = bubble.querySelector('#paywall-new-chat');
+        const upgradeBtn = bubble.querySelector('#paywall-upgrade');
+
+        if (newChatBtn) {
+            newChatBtn.onclick = () => {
+                const sidebarNewChat = document.getElementById('new-chat-sidebar-btn');
+                if (sidebarNewChat) sidebarNewChat.click();
+            };
+        }
+        if (upgradeBtn) {
+            upgradeBtn.onclick = () => router.navigate('upgrade');
+        }
+
+        const welcome = document.querySelector('.welcome-message');
+        if (welcome) welcome.remove();
         scrollToBottom();
     }
 

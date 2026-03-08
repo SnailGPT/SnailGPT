@@ -304,6 +304,31 @@ def chat():
         
         mode = "extreme" if extreme_opt else "normal"
         
+        # --- Tier & Limit Logic ---
+        user_is_premium = False
+        if user_email:
+            db = get_db()
+            user = db.execute('SELECT is_verified FROM users WHERE email = ?', (user_email,)).fetchone()
+            if user and user['is_verified'] == 1:
+                user_is_premium = True
+        
+        # If not premium, check 10-message limit per conversation
+        if not user_is_premium:
+            user_msg_count = sum(1 for m in history if m.get('role', '').lower() == 'user')
+            if user_msg_count >= 10:
+                paywall_msg = (
+                    "You are currently using the Basic version of this AI.\n\n"
+                    "The Basic plan allows up to 10 messages per conversation and supports simple chatting.\n\n"
+                    "Upgrade to Premium to unlock longer conversations and more complex AI responses.\n\n"
+                    "Premium costs $10 per month."
+                )
+                return Response(paywall_msg, mimetype='text/plain')
+        else:
+            # Premium users get "high" mode for more detail by default if not extreme
+            if mode != "extreme":
+                mode = "high"
+        # --- End Tier Logic ---
+
         def generate():
             full_text = ""
             for token in ai_answer_stream(message, history, mode):
@@ -564,6 +589,20 @@ def api_user_verify():
     db.commit()
     
     return jsonify({'status': 'success', 'isVerified': new_status})
+
+
+@app.route('/api/user/upgrade', methods=['POST'])
+def api_user_upgrade():
+    data = request.get_json()
+    email = (data.get('email') or '').lower()
+    if not email:
+        return jsonify({'error': 'Email required.'}), 400
+    
+    db = get_db()
+    db.execute('UPDATE users SET is_verified = 1 WHERE email = ?', (email,))
+    db.commit()
+    
+    return jsonify({'status': 'success', 'isVerified': 1})
 
 
 # ================= RUN =================
